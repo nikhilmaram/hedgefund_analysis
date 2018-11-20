@@ -1,0 +1,7 @@
+*.json
+processed_files/
+*.eml
+.DS_STORE
+*.xml
+__pycache__/
+.idea/

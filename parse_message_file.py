@@ -2,8 +2,6 @@ import config as cfg
 import datetime
 import eml_parser
 import json
-import os
-import re
 from os import walk
 
 
@@ -70,8 +68,8 @@ def read_MESSAGE_EML_file(eml_file):
         parsed_eml = eml_parser.eml_parser.decode_email_b(raw_email, include_raw_body=True)
         # print(parsed_eml)
 
-        temp_file = open('temp.json', 'w')
-        json.dump(parsed_eml, temp_file, ensure_ascii=False, default=json_serial)
+        # temp_file = open('temp.json', 'w')
+        # json.dump(parsed_eml, temp_file, ensure_ascii=False, default=json_serial)
 
         return parsed_eml
 
@@ -83,8 +81,17 @@ def parse_MESSAGE_data(data):
 
     ## currently taking only one element
     subject = data["header"]["header"]["subject"][0]
-    sender = data["header"]["header"]["from"][0]
-    receiver = data["header"]["header"]["to"][0]
+
+
+    if "x-sender" in data["header"]["header"].keys():
+        sender = data["header"]["header"]["x-sender"][0]
+    else:
+        sender = data["header"]["header"]["from"][0]
+    if "x-receiver" in data["header"]["header"].keys():
+        receiver = data["header"]["header"]["x-receiver"][0]
+    else:
+        receiver = data["header"]["header"]["to"][0]
+
     time_stamp = data["header"]["header"]["date"][0]
 
     message_obj = message_class(content,sender,subject,time_stamp)

@@ -1,5 +1,5 @@
-DIRECTORY_PATH='./'
-# DIRECTORY_PATH='/Users/sainikhilmaram/Desktop/nikhil_hedgefund/SDE2611963_Diamondback_Capital_Management_01/media_3/Seagate Expansion Drive/archive/SDE2611963_Diamondback_Capital_Management_01/Export_0x00000152_20070222130307_20070223175543_17075/'
+# DIRECTORY_PATH='./'
+DIRECTORY_PATH='/Users/sainikhilmaram/Desktop/nikhil_hedgefund/SDE2611963_Diamondback_Capital_Management_01/media_3/Seagate Expansion Drive/archive/SDE2611963_Diamondback_Capital_Management_01/Export_0x00000152_20070222130307_20070223175543_17075/'
 
 # IM_EML_FILE='IM_20090430105702_0x000001525e308dee062b8f6698cdb2307af881256487.eml'
 IM_EML_FILE='IM_20070426180524_0x000001525e189a7f6ab8bb9f2f381e800a4bb539e42e.eml'

@@ -125,7 +125,7 @@ def parse_all_files(directory):
     ## append all im messages to a dataframe
 
 
-    ## Processing Messages
+    ## Processing Bloomberg messages
 
     for filename in bloomberg_file_list:
         # print(filename)

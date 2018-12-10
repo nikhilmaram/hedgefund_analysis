@@ -82,10 +82,13 @@ def parse_IM_data(data,im_df,sender,receiver):
 
     buddy_set = [sender_buddy,receiver_buddy]
 
+
     ## get the ims
     for message_tag in root.iter('msgSent'):
         time_stamp = message_tag.find('timeStamp').text
-
+        ## Getting only year-month-date from timestamp.
+        time_stamp = datetime.datetime.fromtimestamp(int(time_stamp) / 1000.0).strftime("%m-%d-%y")
+        # print(time_stamp)
         msg_buddy_receiver = message_tag.find('buddyName').text
         msg_receiver = buddy_to_user[msg_buddy_receiver]
 
@@ -103,11 +106,13 @@ def parse_IM_data(data,im_df,sender,receiver):
     return im_df
 
 def parse_all_files(directory):
+    ## To get the last part of directory
+    directory_name = directory.split('/')[-2]
     message_file_list = []
     im_file_list = []
     bloomberg_file_list = []
     for (dirpath, dirnames, filenames) in walk(directory):
-        # print(dirpath)
+        # print(dirnames)
         for filename in filenames:
             if filename.startswith("Message_"):
                 message_file_list.append(dirpath+'/'+filename)
@@ -148,7 +153,7 @@ def parse_all_files(directory):
     unique_bloomberg_members = len(bloomberg_df['sender'].append(bloomberg_df['receiver']).unique())
     print("Bloomberg Files : {0} , Unique Message Members : {1}".format(num_bloomberg_files, unique_bloomberg_members))
 
-    bloomberg_df.to_csv(cfg.PROCESSED_DIR_PATH+"bloomberg_df.csv",index=False)
+    bloomberg_df.to_csv(cfg.PROCESSED_DIR_PATH+"bloomberg_df_" + directory_name +".csv",index=False)
 
     ## To delete data frame to free up memory
     bloomberg_df_list = [bloomberg_df]
@@ -180,7 +185,7 @@ def parse_all_files(directory):
     unique_message_members = len(message_df['sender'].append(message_df['receiver']).unique())
     print("Message Files : {0} , Unique Message Members : {1}".format(num_message_files, unique_message_members))
 
-    message_df.to_csv(cfg.PROCESSED_DIR_PATH+"message_df.csv",index=False)
+    message_df.to_csv(cfg.PROCESSED_DIR_PATH+"message_df_"+ directory_name+ ".csv",index=False)
 
     ## To delete data frame to free up memory
     message_df_list = [message_df]
@@ -190,9 +195,12 @@ def parse_all_files(directory):
     ## Processing IMs
     for filename in im_file_list:
         # print(filename)
-        data = read_EML_file(filename)
-        sender, receiver, time_stamp, subject, content = parse_eml_data(data)
-        im_df = parse_IM_data(content, im_df, sender, receiver)
+        try:
+            data = read_EML_file(filename)
+            sender, receiver, time_stamp, subject, content = parse_eml_data(data)
+            im_df = parse_IM_data(content, im_df, sender, receiver)
+        except:
+            print("IM file is not parsed properly")
 
     # print(im_df)
 
@@ -200,27 +208,41 @@ def parse_all_files(directory):
     unique_im_members = len(im_df['sender'].append(im_df['receiver']).unique())
     print("IM Files : {0} , Unique IM Members : {1}".format(number_im_files, unique_im_members))
 
-    im_df.to_csv(cfg.PROCESSED_DIR_PATH+"im_df.csv",index=False)
+    im_df.to_csv(cfg.PROCESSED_DIR_PATH+"im_df_" + directory_name +".csv",index=False)
     im_df_list = [im_df]
     del im_df
     del im_df_list
 
 
-def unique_member():
-    im_df = pd.read_csv(cfg.PROCESSED_DIR_PATH+"im_df.csv")
-    message_df = pd.read_csv(cfg.PROCESSED_DIR_PATH+"message_df.csv")
-    unique_im_members = im_df['sender'].append(im_df['receiver']).unique().tolist()
+def unique_member(directory):
+    directory_name = directory.split('/')[-2]
+    im_df = pd.read_csv(cfg.PROCESSED_DIR_PATH+"im_df_"+directory_name+".csv")
+
+    # unique_im_members = im_df['sender'].append(im_df['receiver']).unique().tolist()
     unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
-    unique_message_members = message_df['sender'].append(message_df['receiver']).unique().tolist()
 
-    total_unique_members = set((unique_im_members+unique_message_members))
+    ## get unique member by date; group the data by date
+    im_df_grouped = im_df.groupby('time_stamp')
+    for date,group in im_df_grouped:
+        unique_im_buddies_date = group['sender_buddy'].append(group['receiver_buddy']).unique().tolist()
+        print("Date : {0} ; Unique IM Buddies : {1}".format(date,len(unique_im_buddies_date)))
 
-    print("Unique IM Members : {0}, Unique Message Members : {1}, Unique Total Members : {2},unique IM buddies : {3}"
-          .format(len(unique_im_members),len(unique_message_members),len(total_unique_members),len(unique_im_buddies)))
+    print(" Total Unique IM Buddies : {0}".format(len(unique_im_buddies)))
 
-
+    # message_df = pd.read_csv(cfg.PROCESSED_DIR_PATH+"message_df_"+directory_name+".csv")
+    # unique_message_members = message_df['sender'].append(message_df['receiver']).unique().tolist()
+    # total_unique_members = set((unique_im_members+unique_message_members))
 
 if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
-    parse_all_files(cfg.DIRECTORY_PATH)
-    # unique_member()
+    # parse_all_files(cfg.DIRECTORY_PATH)
+    # unique_member(cfg.DIRECTORY_PATH)
+    count = 0
+    ## Reads all the directories present
+    for (dirpath, dirnames, filenames) in walk('/Users/sainikhilmaram/Desktop/nikhil_hedgefund/SDE2611963_Diamondback_Capital_Management_01/'):
+        if(count == 0):
+            count = count + 1
+            continue
+        parse_all_files(dirpath +'/')
+
+

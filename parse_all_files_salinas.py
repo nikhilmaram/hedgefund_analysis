@@ -6,6 +6,9 @@ import re
 from os import walk
 import pandas as pd
 import xml.etree.ElementTree as ET
+import multiprocessing
+
+import time
 
 from datetime import  datetime,timedelta,date
 
@@ -23,25 +26,16 @@ for line in f.readlines():
 # print(trading_terms_list)
 
 def classify_ims(text):
-    # f = open(cfg.STOCK_FILE, 'r')
-    # stock_list = []
-    # for line in f.readlines():
-    #     stock_list.append(line.strip('\n').lower())
-    #
-    # trading_terms_list = []
-    # f = open(cfg.TRADING_TERMS,'r')
-    # for line in f.readlines():
-    #     trading_terms_list.append(line.strip('\n'))
-
+    # Checks for number
+    if bool(re.match('.*\d+k*.*', text)):
+        return 1
     word_list = text.lower().split(' ')
 
     # Check for stock list and trading terms
     for word in word_list:
         if word in stock_list or word in trading_terms_list:
             return 1
-    # Checks for number
-    if bool(re.match('.*\d+k.*', text)):
-        return 1
+
     return 0
 
 
@@ -141,6 +135,8 @@ def parse_IM_data(data,im_df,sender,receiver):
 
 def parse_all_files(pathlistSorted):
     ## To get the last part of directory
+    name = multiprocessing.current_process().name
+    print(name, 'Starting')
 
     start_date = date(2006, 8, 3)
 
@@ -148,8 +144,10 @@ def parse_all_files(pathlistSorted):
 
     im_file_weekly = {}
 
-    for dir in pathlistSorted:
-        dir_list = dir.split('/')
+    start_time_splitting_weeks = time.time()
+
+    for dire in pathlistSorted:
+        dir_list = dire.split('/')
         zipname = dir_list[-1]
         split_list = zipname.split('_')
         time_stamp = split_list[-2]
@@ -167,7 +165,7 @@ def parse_all_files(pathlistSorted):
                 im_file_weekly[week_num] = []
 
 
-            for (dirpath, dirnames, filenames) in walk(dir):
+            for (dirpath, dirnames, filenames) in walk(dire):
                 for filename in filenames:
                     if filename.startswith("IM_"):
                         im_file_weekly[week_num].append(dirpath + '/' + filename)
@@ -176,6 +174,8 @@ def parse_all_files(pathlistSorted):
         except:
             print("Date not processed correctly")
 
+    print("Completed splitting files in weeks {0}".format(time.time()-start_time_splitting_weeks))
+    
     for key in im_file_weekly.keys():
         im_df = pd.DataFrame(columns=['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content','classify'])
         for filename in im_file_weekly[key]:
@@ -216,20 +216,37 @@ def unique_member(directory):
 
 if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
-    # parse_all_files(cfg.DIRECTORY_PATH)
+
     # unique_member(cfg.DIRECTORY_PATH)
     ## Reads all the directories present
-    file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
+
     print("started running")
+    start_time_main = time.time()
     # file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
-    # file_path = './'
+    file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
+    # file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
     pathlist = []
     for (dirpath, dirnames, filenames) in walk(file_path):
-        for dir in dirnames:
-            pathlist.append(os.path.join(file_path, dir))
+        for dire in dirnames:
+            pathlist.append(os.path.join(file_path, dire))
+        break
 
     pathlistSorted = sorted(pathlist)
     # print(pathlistSorted)
-    parse_all_files(pathlistSorted)
+    length_list = len(pathlistSorted)
+    num_process = 1
+    splitsize = 1.0 / num_process * length_list
+    new_pathlist_sorted = []
+    for i in range(num_process):
+        new_pathlist_sorted.append(pathlistSorted[int(round(i * splitsize)):int(round((i + 1) * splitsize))])
+    print(new_pathlist_sorted)
+
+    print("Completed sorting the directories and splitting them in {0}".format(time.time()-start_time_main))
+    process_num = 0
+    for pathlistSorted in new_pathlist_sorted:
+        print(pathlistSorted)
+        p = multiprocessing.Process(target=parse_all_files, args=(pathlistSorted,), name="Process {0}".format(process_num))
+        process_num = process_num + 1
+        p.start()
 
 

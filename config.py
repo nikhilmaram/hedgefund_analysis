@@ -30,7 +30,13 @@ MSG_EML_FILE='Message_20070426131116_0x000001525e18db012c9d6a5265695a4c80c16f7b0
 BLOOMBERG_EML_FILE='Bloomberg_20070426122016_0x000001525e1869262b3c3fe3969634d13596e59a5bf5.eml'
 
 NOTICE_MESSAGE='IM Administrator: Notice:'
+AUTO_RESPONSE = '(Auto-Response) I have not interacted with my computer in the past few minutes.'
+DISCLAMER_MESSAGE_1 = '<a href="http://www.rbccm.com/0,,cid-26451_,00.html">RBC Capital Markets Instant Messaging Disclaimer</A>'
+DISCLAMER_MESSAGE_2 = 'Your screen name (msedoy) has signed in from another location'
 IM_MESSAGE='IMlogic IMManager conversation export'
 XML_HEADER='<?xml version="1.0" encoding="UTF-8"?>\n'
 
 PROCESSED_DIR_PATH='./processed_files/'
+
+STOCK_FILE="/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/performance_data/stock.csv"
+TRADING_TERMS="/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/tradingterms.csv"

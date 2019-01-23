@@ -9,6 +9,41 @@ import xml.etree.ElementTree as ET
 
 from datetime import  datetime,timedelta,date
 
+f = open(cfg.STOCK_FILE, 'r')
+stock_list = []
+for line in f.readlines():
+    stock_list.append(line.strip('\n').lower())
+
+f = open(cfg.TRADING_TERMS,'r')
+trading_terms_list = []
+
+for line in f.readlines():
+    trading_terms_list.append(line.strip('\n'))
+# print(stock_list)
+# print(trading_terms_list)
+
+def classify_ims(text):
+    # f = open(cfg.STOCK_FILE, 'r')
+    # stock_list = []
+    # for line in f.readlines():
+    #     stock_list.append(line.strip('\n').lower())
+    #
+    # trading_terms_list = []
+    # f = open(cfg.TRADING_TERMS,'r')
+    # for line in f.readlines():
+    #     trading_terms_list.append(line.strip('\n'))
+
+    word_list = text.lower().split(' ')
+
+    # Check for stock list and trading terms
+    for word in word_list:
+        if word in stock_list or word in trading_terms_list:
+            return 1
+    # Checks for number
+    if bool(re.match('.*\d+k.*', text)):
+        return 1
+    return 0
+
 
 def json_serial(obj):
     if isinstance(obj, datetime):
@@ -19,8 +54,8 @@ def read_EML_file(eml_file):
     with open(eml_file, 'rb') as fhdl:
         raw_email = fhdl.read()
         parsed_eml = eml_parser.eml_parser.decode_email_b(raw_email, include_raw_body=True)
-        temp_file = open('temp.json', 'w')
-        json.dump(parsed_eml, temp_file, ensure_ascii=False, default=json_serial)
+        # temp_file = open('temp.json', 'w')
+        # json.dump(parsed_eml, temp_file, ensure_ascii=False, default=json_serial)
         return parsed_eml
 
 def parse_eml_data(data):
@@ -91,13 +126,16 @@ def parse_IM_data(data,im_df,sender,receiver):
 
         text = message_tag.find('text').text
 
-        if cfg.NOTICE_MESSAGE in text:
+        if cfg.NOTICE_MESSAGE in text or cfg.DISCLAMER_MESSAGE_1 in text or cfg.DISCLAMER_MESSAGE_2 in text \
+                or cfg.AUTO_RESPONSE in text :
             continue
 
+        # print(classify_ims(text),text)
 
+        classify = classify_ims(text)
         ## storing both buddy and encrypted name
         im_df = im_df.append({'sender': msg_sender,'sender_buddy':msg_buddy_sender, 'receiver': msg_receiver, 'receiver_buddy':msg_buddy_receiver,
-                              'time_stamp': time_stamp, 'subject':'IM Message','content':text},ignore_index=True)
+                              'time_stamp': time_stamp, 'subject':'IM Message','content':text,'classify':classify},ignore_index=True)
 
     return im_df
 
@@ -139,14 +177,12 @@ def parse_all_files(pathlistSorted):
             print("Date not processed correctly")
 
     for key in im_file_weekly.keys():
-
-        im_df = pd.DataFrame(columns=['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content'])
+        im_df = pd.DataFrame(columns=['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content','classify'])
         for filename in im_file_weekly[key]:
             # print(filename)
             try:
                 data = read_EML_file(filename)
                 sender, receiver, time_stamp, subject, content = parse_eml_data(data)
-
                 im_df = parse_IM_data(content, im_df, sender, receiver)
             except:
                 print("IM file is not parsed properly")
@@ -184,6 +220,9 @@ if __name__ == "__main__":
     # unique_member(cfg.DIRECTORY_PATH)
     ## Reads all the directories present
     file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
+    print("started running")
+    # file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
+    # file_path = './'
     pathlist = []
     for (dirpath, dirnames, filenames) in walk(file_path):
         for dir in dirnames:

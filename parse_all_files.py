@@ -2,13 +2,11 @@ import config as cfg
 import datetime
 import eml_parser
 import json
-import os
 import re
 from os import walk
 import pandas as pd
 import xml.etree.ElementTree as ET
 
-import parse_message_file
 
 
 def json_serial(obj):
@@ -130,71 +128,71 @@ def parse_all_files(directory):
     ## append all im messages to a dataframe
 
 
-    ## Processing Bloomberg messages
-
-    for filename in bloomberg_file_list:
-        # print(filename)
-        try:
-            data = read_EML_file(filename)
-            sender, receiver, time_stamp, subject, content = parse_eml_data(data)
-            ## Add the message files which have IM
-            if(subject.startswith(cfg.IM_MESSAGE)):
-                # print("Message contains an IM file")
-                bloomberg_file_list.remove(filename)
-                im_file_list.append(filename)
-                continue
-            ## The actual content is hidden to reduce the space.
-            bloomberg_df = bloomberg_df.append({'sender': sender, 'receiver': receiver,
-                                  'time_stamp': time_stamp, 'subject': subject, 'content': 'Test Content'}, ignore_index=True)
-
-        except:
-            print("EML file is not parsed properly")
-    num_bloomberg_files = len(bloomberg_file_list)
-    unique_bloomberg_members = len(bloomberg_df['sender'].append(bloomberg_df['receiver']).unique())
-    print("Bloomberg Files : {0} , Unique Message Members : {1}".format(num_bloomberg_files, unique_bloomberg_members))
-
-    bloomberg_df.to_csv(cfg.PROCESSED_DIR_PATH+"bloomberg_df_" + directory_name +".csv",index=False)
-
-    ## To delete data frame to free up memory
-    bloomberg_df_list = [bloomberg_df]
-    del bloomberg_df
-    del bloomberg_df_list
-
-
-
-    ## Processing Messages
-
-    for filename in message_file_list:
-        # print(filename)
-        try:
-            data = read_EML_file(filename)
-            sender, receiver, time_stamp, subject, content = parse_eml_data(data)
-            ## Add the message files which have IM
-            if(subject.startswith(cfg.IM_MESSAGE)):
-                # print("Message contains an IM file")
-                message_file_list.remove(filename)
-                im_file_list.append(filename)
-                continue
-            ## The actual content is hidden to reduce the space.
-            message_df = message_df.append({'sender': sender, 'receiver': receiver,
-                                  'time_stamp': time_stamp, 'subject': subject, 'content': 'Test Content'}, ignore_index=True)
-
-        except:
-            print("EML file is not parsed properly")
-    num_message_files = len(message_file_list)
-    unique_message_members = len(message_df['sender'].append(message_df['receiver']).unique())
-    print("Message Files : {0} , Unique Message Members : {1}".format(num_message_files, unique_message_members))
-
-    message_df.to_csv(cfg.PROCESSED_DIR_PATH+"message_df_"+ directory_name+ ".csv",index=False)
-
-    ## To delete data frame to free up memory
-    message_df_list = [message_df]
-    del message_df
-    del message_df_list
+    # ## Processing Bloomberg messages
+    #
+    # for filename in bloomberg_file_list:
+    #     # print(filename)
+    #     try:
+    #         data = read_EML_file(filename)
+    #         sender, receiver, time_stamp, subject, content = parse_eml_data(data)
+    #         ## Add the message files which have IM
+    #         if(subject.startswith(cfg.IM_MESSAGE)):
+    #             # print("Message contains an IM file")
+    #             bloomberg_file_list.remove(filename)
+    #             im_file_list.append(filename)
+    #             continue
+    #         ## The actual content is hidden to reduce the space.
+    #         bloomberg_df = bloomberg_df.append({'sender': sender, 'receiver': receiver,
+    #                               'time_stamp': time_stamp, 'subject': subject, 'content': 'Test Content'}, ignore_index=True)
+    #
+    #     except:
+    #         print("EML file is not parsed properly")
+    # num_bloomberg_files = len(bloomberg_file_list)
+    # unique_bloomberg_members = len(bloomberg_df['sender'].append(bloomberg_df['receiver']).unique())
+    # print("Bloomberg Files : {0} , Unique Message Members : {1}".format(num_bloomberg_files, unique_bloomberg_members))
+    #
+    # bloomberg_df.to_csv(cfg.PROCESSED_DIR_PATH+"bloomberg_df_" + directory_name +".csv",index=False)
+    #
+    # ## To delete data frame to free up memory
+    # bloomberg_df_list = [bloomberg_df]
+    # del bloomberg_df
+    # del bloomberg_df_list
+    #
+    #
+    #
+    # ## Processing Messages
+    #
+    # for filename in message_file_list:
+    #     # print(filename)
+    #     try:
+    #         data = read_EML_file(filename)
+    #         sender, receiver, time_stamp, subject, content = parse_eml_data(data)
+    #         ## Add the message files which have IM
+    #         if(subject.startswith(cfg.IM_MESSAGE)):
+    #             # print("Message contains an IM file")
+    #             message_file_list.remove(filename)
+    #             im_file_list.append(filename)
+    #             continue
+    #         ## The actual content is hidden to reduce the space.
+    #         message_df = message_df.append({'sender': sender, 'receiver': receiver,
+    #                               'time_stamp': time_stamp, 'subject': subject, 'content': 'Test Content'}, ignore_index=True)
+    #
+    #     except:
+    #         print("EML file is not parsed properly")
+    # num_message_files = len(message_file_list)
+    # unique_message_members = len(message_df['sender'].append(message_df['receiver']).unique())
+    # print("Message Files : {0} , Unique Message Members : {1}".format(num_message_files, unique_message_members))
+    #
+    # message_df.to_csv(cfg.PROCESSED_DIR_PATH+"message_df_"+ directory_name+ ".csv",index=False)
+    #
+    # ## To delete data frame to free up memory
+    # message_df_list = [message_df]
+    # del message_df
+    # del message_df_list
 
     ## Processing IMs
     for filename in im_file_list:
-        # print(filename)
+        print(filename)
         try:
             data = read_EML_file(filename)
             sender, receiver, time_stamp, subject, content = parse_eml_data(data)
@@ -239,7 +237,7 @@ if __name__ == "__main__":
     # unique_member(cfg.DIRECTORY_PATH)
     count = 0
     ## Reads all the directories present
-    for (dirpath, dirnames, filenames) in walk('/Users/sainikhilmaram/Desktop/nikhil_hedgefund/SDE2611963_Diamondback_Capital_Management_01/'):
+    for (dirpath, dirnames, filenames) in walk('/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files'):
         if(count == 0):
             count = count + 1
             continue

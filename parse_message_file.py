@@ -1,7 +1,6 @@
 import config as cfg
 import datetime
 import eml_parser
-import json
 from os import walk
 
 

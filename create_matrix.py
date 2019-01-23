@@ -5,7 +5,6 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from os import walk
 
-import matplotlib.style
 import matplotlib as mpl
 
 mpl.rcParams['image.cmap'] = 'viridis'

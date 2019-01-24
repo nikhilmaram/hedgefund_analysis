@@ -17,23 +17,29 @@ stock_list = []
 for line in f.readlines():
     stock_list.append(line.strip('\n').lower())
 
+stock_set = set(stock_list)
+
 f = open(cfg.TRADING_TERMS,'r')
 trading_terms_list = []
 
+
 for line in f.readlines():
     trading_terms_list.append(line.strip('\n'))
+
+trading_terms_set = set(trading_terms_list)
 # print(stock_list)
 # print(trading_terms_list)
 
 def classify_ims(text):
     # Checks for number
-    if bool(re.match('.*\d+k*.*', text)):
+    if bool(re.match('.*\d+.*', text)):
         return 1
     word_list = text.lower().split(' ')
 
     # Check for stock list and trading terms
     for word in word_list:
-        if word in stock_list or word in trading_terms_list:
+        # if word in stock_list or word in trading_terms_list:
+        if word in stock_set or word in trading_terms_set:
             return 1
 
     return 0
@@ -79,13 +85,15 @@ def parse_eml_data(data):
 
     return sender,receiver,time_stamp,subject,content
 
-def parse_IM_data(data,im_df,sender,receiver):
-
+# def parse_IM_data(data,im_df,sender,receiver):
+def parse_IM_data(data, sender, receiver):
     # # Write into a temporary file to check intermediata XML data
     # file_write = open('temp.xml','w')
     # file_write.write(data)
     # file_write.close()
-
+    im_df = pd.DataFrame(
+        columns=['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content',
+                 'classify'])
     pattern = "(\<interaction\>)(.*)(\<\/interaction\>)"
     m = re.search(pattern, data, re.DOTALL)
 
@@ -175,18 +183,25 @@ def parse_all_files(pathlistSorted):
             print("Date not processed correctly")
 
     print("Completed splitting files in weeks {0}".format(time.time()-start_time_splitting_weeks))
-    
+    count = 0
     for key in im_file_weekly.keys():
         im_df = pd.DataFrame(columns=['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content','classify'])
         for filename in im_file_weekly[key]:
             # print(filename)
+            # start_time_file = time.time()
             try:
+                # filename="/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/Export_0x00000152_20060929045330_20060926235951_8838/IM_20090430105702_0x000001525e308dee062b8f6698cdb2307af881256487.eml"
                 data = read_EML_file(filename)
                 sender, receiver, time_stamp, subject, content = parse_eml_data(data)
-                im_df = parse_IM_data(content, im_df, sender, receiver)
+                # im_df = parse_IM_data(content, im_df, sender, receiver)
+                df = parse_IM_data(content, sender, receiver)
+                im_df = pd.concat([im_df,df])
             except:
                 print("IM file is not parsed properly")
 
+            # print("Time between each files : {0}, {1}".format(time.time() - start_time_file,count))
+            # count = count + 1
+        print("Completed a week")
         im_df.to_csv(cfg.PROCESSED_DIR_PATH+"im_df_week" + str(key) +".csv",index=False)
         im_df_list = [im_df]
         del im_df_list
@@ -223,8 +238,8 @@ if __name__ == "__main__":
     print("started running")
     start_time_main = time.time()
     # file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
-    file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
-    # file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
+    # file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
+    file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
     pathlist = []
     for (dirpath, dirnames, filenames) in walk(file_path):
         for dire in dirnames:

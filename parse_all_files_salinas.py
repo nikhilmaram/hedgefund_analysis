@@ -12,6 +12,9 @@ import time
 
 from datetime import  datetime,timedelta,date
 
+import itertools
+
+
 f = open(cfg.STOCK_FILE, 'r')
 stock_list = []
 for line in f.readlines():
@@ -29,6 +32,14 @@ for line in f.readlines():
 trading_terms_set = set(trading_terms_list)
 # print(stock_list)
 # print(trading_terms_list)
+
+
+def split_dict(x, chunks):
+    i = itertools.cycle(range(chunks))
+    split = [dict() for _ in range(chunks)]
+    for k, v in x.items():
+        split[next(i)][k] = v
+    return split
 
 def classify_ims(text):
     # Checks for number
@@ -141,10 +152,39 @@ def parse_IM_data(data, sender, receiver):
 
     return im_df
 
-def parse_all_files(pathlistSorted):
-    ## To get the last part of directory
+def process_dictionary(im_file_weekly):
+    """Function process the directories based on weeks."""
+    count = 0
     name = multiprocessing.current_process().name
     print(name, 'Starting')
+    for key in im_file_weekly.keys():
+        im_df = pd.DataFrame(
+            columns=['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content',
+                     'classify'])
+        for filename in im_file_weekly[key]:
+            # print(filename)
+            # start_time_file = time.time()
+            try:
+                # filename="/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/Export_0x00000152_20060929045330_20060926235951_8838/IM_20090430105702_0x000001525e308dee062b8f6698cdb2307af881256487.eml"
+                data = read_EML_file(filename)
+                sender, receiver, time_stamp, subject, content = parse_eml_data(data)
+                # im_df = parse_IM_data(content, im_df, sender, receiver)
+                df = parse_IM_data(content, sender, receiver)
+                im_df = pd.concat([im_df, df])
+            except:
+                print("IM file is not parsed properly")
+
+            # print("Time between each files : {0}, {1}".format(time.time() - start_time_file,count))
+            # count = count + 1
+        print("Completed a week")
+        im_df.to_csv(cfg.PROCESSED_DIR_PATH + "im_df_week" + str(key) + ".csv", index=False)
+        im_df_list = [im_df]
+        del im_df_list
+
+
+def parse_all_files(pathlistSorted):
+    ## To get the last part of directory
+
 
     start_date = date(2006, 8, 3)
 
@@ -182,29 +222,16 @@ def parse_all_files(pathlistSorted):
         except:
             print("Date not processed correctly")
 
-    print("Completed splitting files in weeks {0}".format(time.time()-start_time_splitting_weeks))
-    count = 0
-    for key in im_file_weekly.keys():
-        im_df = pd.DataFrame(columns=['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content','classify'])
-        for filename in im_file_weekly[key]:
-            # print(filename)
-            # start_time_file = time.time()
-            try:
-                # filename="/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/Export_0x00000152_20060929045330_20060926235951_8838/IM_20090430105702_0x000001525e308dee062b8f6698cdb2307af881256487.eml"
-                data = read_EML_file(filename)
-                sender, receiver, time_stamp, subject, content = parse_eml_data(data)
-                # im_df = parse_IM_data(content, im_df, sender, receiver)
-                df = parse_IM_data(content, sender, receiver)
-                im_df = pd.concat([im_df,df])
-            except:
-                print("IM file is not parsed properly")
-
-            # print("Time between each files : {0}, {1}".format(time.time() - start_time_file,count))
-            # count = count + 1
-        print("Completed a week")
-        im_df.to_csv(cfg.PROCESSED_DIR_PATH+"im_df_week" + str(key) +".csv",index=False)
-        im_df_list = [im_df]
-        del im_df_list
+    num_process = 16
+    split_dictionaries = split_dict(im_file_weekly,num_process)
+    # print(split_dictionaries)
+    print("Completed splitting files in weeks {0}".format(time.time() - start_time_splitting_weeks))
+    process_num = 0
+    for dictionary in split_dictionaries:
+        p = multiprocessing.Process(target=process_dictionary, args=(dictionary,),
+                                    name="Process {0}".format(process_num))
+        process_num = process_num + 1
+        p.start()
 
 
 def unique_member(directory):
@@ -237,9 +264,9 @@ if __name__ == "__main__":
 
     print("started running")
     start_time_main = time.time()
-    # file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
+    file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
     # file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
-    file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
+    # file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
     pathlist = []
     for (dirpath, dirnames, filenames) in walk(file_path):
         for dire in dirnames:
@@ -248,20 +275,8 @@ if __name__ == "__main__":
 
     pathlistSorted = sorted(pathlist)
     # print(pathlistSorted)
-    length_list = len(pathlistSorted)
-    num_process = 1
-    splitsize = 1.0 / num_process * length_list
-    new_pathlist_sorted = []
-    for i in range(num_process):
-        new_pathlist_sorted.append(pathlistSorted[int(round(i * splitsize)):int(round((i + 1) * splitsize))])
-    print(new_pathlist_sorted)
-
     print("Completed sorting the directories and splitting them in {0}".format(time.time()-start_time_main))
-    process_num = 0
-    for pathlistSorted in new_pathlist_sorted:
-        print(pathlistSorted)
-        p = multiprocessing.Process(target=parse_all_files, args=(pathlistSorted,), name="Process {0}".format(process_num))
-        process_num = process_num + 1
-        p.start()
+    parse_all_files(pathlistSorted)
+
 
 

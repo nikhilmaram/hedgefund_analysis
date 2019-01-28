@@ -24,7 +24,7 @@ def create_df(directory):
     print("Total Unique Buddies : {0}".format(len(total_im_buddies_unique)))
     return total_df
 
-def create_matrix(im_df):
+def create_matrix_dict(im_df):
     """Takes in a df and constructs message adjaceny list and message matrix grouped by date"""
     im_columns = ['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content']
 
@@ -63,7 +63,7 @@ def create_matrix(im_df):
             # sender_buddy_idx = buddy_to_idx[row['sender']]
             receiver_buddy_idx = buddy_to_idx[row['receiver_buddy']]
             # receiver_buddy_idx = buddy_to_idx[row['receiver']]
-            # message_matrix[sender_buddy_idx][receiver_buddy_idx] = message_matrix[sender_buddy_idx][receiver_buddy_idx] + 1
+            message_matrix[sender_buddy_idx][receiver_buddy_idx] = message_matrix[sender_buddy_idx][receiver_buddy_idx] + 1
             message_adj_list[sender_buddy_idx].add(receiver_buddy_idx)
             message_adj_list[receiver_buddy_idx].add(sender_buddy_idx)
 
@@ -214,6 +214,7 @@ def color_kcore_networkx(message_adj_list_dict):
         loop_count = loop_count + 1
         # break
 
+
 def return_kcore_nodes(message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict,k):
     """Returns kcore nodes of the graph"""
     kcore_nodes_dict = {}
@@ -298,7 +299,7 @@ if __name__ == "__main__":
     ## message matrix contains edge weight about number of messages exchanged. It gives information of a directed graph.
     # df = create_df(cfg.PROCESSED_DIR_PATH)
     df = pd.read_csv(cfg.PROCESSED_DIR_PATH + "im_df_Export_0x00000152_20070222130307_20070223175543_17075.csv")
-    message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict = create_matrix(df)
+    message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict = create_matrix_dict(df)
 
     # create_graph(message_adj_list_dict)
     # construct_kcore_networkx(message_adj_list_dict,3)

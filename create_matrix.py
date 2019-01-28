@@ -4,6 +4,7 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 from os import walk
+import os
 
 import matplotlib as mpl
 
@@ -23,6 +24,42 @@ def create_df(directory):
 
     print("Total Unique Buddies : {0}".format(len(total_im_buddies_unique)))
     return total_df
+
+
+def create_matrix(im_df):
+    """Takes in a df and constructs message adjacency list and message matrix """
+    im_columns = ['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content']
+
+    unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
+    print("the number of unique buddues: %d" % len(unique_im_buddies))
+
+    buddy_to_idx = {}
+    idx_to_buddy = {}
+
+
+    ## Assign index to each buddy
+    count = 0
+    for buddy in unique_im_buddies:
+        buddy_to_idx[buddy] = count
+        idx_to_buddy[count] = buddy
+        count = count + 1
+
+    # print(buddy_to_idx)
+    unique_im_buddies_count = len(unique_im_buddies)
+    message_matrix = np.zeros((unique_im_buddies_count,unique_im_buddies_count))
+    # message_matrix = []
+    message_adj_list = [set() for _ in range(unique_im_buddies_count)]
+
+    for index, row in im_df.iterrows():
+        sender_buddy_idx = buddy_to_idx[row['sender_buddy']]
+        # sender_buddy_idx = buddy_to_idx[row['sender']]
+        receiver_buddy_idx = buddy_to_idx[row['receiver_buddy']]
+        # receiver_buddy_idx = buddy_to_idx[row['receiver']]
+        message_matrix[sender_buddy_idx][receiver_buddy_idx] = message_matrix[sender_buddy_idx][receiver_buddy_idx] + 1
+        message_adj_list[sender_buddy_idx].add(receiver_buddy_idx)
+        message_adj_list[receiver_buddy_idx].add(sender_buddy_idx)
+
+    return message_matrix,message_adj_list,buddy_to_idx,idx_to_buddy
 
 def create_matrix_dict(im_df):
     """Takes in a df and constructs message adjaceny list and message matrix grouped by date"""
@@ -215,6 +252,64 @@ def color_kcore_networkx(message_adj_list_dict):
         # break
 
 
+def construct_kcore_networkx_salinas(message_matrix):
+
+    message_matrix1 = np.zeros((len(message_matrix), len(message_matrix)))
+    for i in range(len(message_matrix)):
+        for j in range(i + 1, len(message_matrix)):
+            message_matrix1[i][j] = message_matrix[i][j] + message_matrix[j][i]
+            message_matrix1[j][i] = message_matrix1[i][j]
+
+    # for time, message_adj_list in message_adj_list_dict.items():
+    G = nx.Graph()
+    for src in range(len(message_matrix1)):
+        for dest in range(len(message_matrix1[0])):
+            if src != dest and message_matrix1[src][dest] != 0:
+                G.add_edge(src, dest, weight=message_matrix1[src][dest])
+
+    degree = np.sum(message_matrix1, axis=1)
+
+    uniqueDegree = np.unique(degree)
+    degrees = {}
+    for i in range(len(degree)):
+        degrees[i] = int(degree[i])
+
+    # print(degrees)
+    kcore_num_of_nodes_list = []
+    kcore_number_list = []
+    kcore_num_components_list = []
+    kcore_largest_cc_num_nodes_list = []
+
+    ## Gives the max number of cores that graph can have
+    # for max_core in range(len(uniqueDegree)):
+
+    for max_core in range(25):
+        # print(uniqueDegree[max_core])
+        # kcore_G = core.k_core(G, degrees, uniqueDegree[max_core])
+        # kcore_G = nx.k_core(G, uniqueDegree[max_core])
+        kcore_G = nx.k_core(G, max_core)
+
+        kcore_num_of_nodes = len(kcore_G.nodes)
+        subgraphs = nx.connected_component_subgraphs(kcore_G)
+        kcore_num_components = len(list(subgraphs))
+        kcore_num_components_list.append(kcore_num_components)
+
+        if (kcore_num_of_nodes == 0):
+            break
+
+        kcore_num_of_nodes_list.append(kcore_num_of_nodes)
+        # kcore_number_list.append(uniqueDegree[max_core])
+        kcore_number_list.append(max_core)
+        kcore_largest_cc = max(nx.connected_component_subgraphs(kcore_G), key=len)
+        kcore_largest_cc_num_nodes = len(kcore_largest_cc.nodes)
+        kcore_largest_cc_num_nodes_list.append(kcore_largest_cc_num_nodes)
+
+        print("Number of {0}-core Nodes: {1}, Connected Components : {2}, largest CC Size: {3}"
+              .format(max_core,kcore_num_of_nodes,kcore_num_components,kcore_largest_cc_num_nodes))
+    # print(kcore_num_of_nodes_list)
+
+    return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list
+
 def return_kcore_nodes(message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict,k):
     """Returns kcore nodes of the graph"""
     kcore_nodes_dict = {}
@@ -277,7 +372,7 @@ def common_users(directory,k):
     #
 
 
-    message_matrix_dict, message_adj_list_dict, buddy_to_idx_dict, idx_to_buddy_dict = create_matrix(total_df)
+    message_matrix_dict, message_adj_list_dict, buddy_to_idx_dict, idx_to_buddy_dict = create_matrix_dict(total_df)
     kcore_nodes_dict = return_kcore_nodes(message_adj_list_dict, buddy_to_idx_dict, idx_to_buddy_dict, k)
     group1_buddies_unique = kcore_nodes_dict['02-22-07']
     group2_buddies_unique = kcore_nodes_dict['02-23-07']
@@ -298,14 +393,55 @@ if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
     ## message matrix contains edge weight about number of messages exchanged. It gives information of a directed graph.
     # df = create_df(cfg.PROCESSED_DIR_PATH)
-    df = pd.read_csv(cfg.PROCESSED_DIR_PATH + "im_df_Export_0x00000152_20070222130307_20070223175543_17075.csv")
-    message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict = create_matrix_dict(df)
+    # df = pd.read_csv(cfg.PROCESSED_DIR_PATH + "im_df_Export_0x00000152_20070222130307_20070223175543_17075.csv")
 
+    # message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict = create_matrix_dict(df)
     # create_graph(message_adj_list_dict)
     # construct_kcore_networkx(message_adj_list_dict,3)
     # construct_k_core_degrees(message_adj_list_dict,3)
-    color_kcore_networkx(message_adj_list_dict)
+    # color_kcore_networkx(message_adj_list_dict)
     # kcore_nodes_dict = return_kcore_nodes(message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict,2)
-
     # unique_users(cfg.PROCESSED_DIR_PATH)
     # common_users(cfg.PROCESSED_DIR_PATH,1)
+
+    dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files_salinas/"
+    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    for (dirpath, dirnames, filenames) in walk(dir_path):
+        for filename in filenames:
+            weeknum = filename.split('.')[0][10:]
+            print(weeknum)
+            file_path = os.path.join(dir_path, filename)
+            print(file_path)
+            df = pd.read_csv(file_path)
+            message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
+            kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(message_matrix)
+
+            with open("./ims/kcore_number_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_number_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
+
+            with open("./ims/kcore_num_of_nodes_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_num_of_nodes_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
+
+            with open("./ims/kcore_num_components_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_num_components_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
+
+            with open("./ims/kcore_largest_cc_num_nodes_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_largest_cc_num_nodes_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
+
+            # break

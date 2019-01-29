@@ -5,6 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from os import walk
 import os
+import multiprocessing
 
 import matplotlib as mpl
 
@@ -389,6 +390,49 @@ def common_users(directory,k):
 
     print("K : {0}, Total Unique Nodes: {1}".format(k,len(total_unique_nodes)))
 
+def chunker_list(seq, size):
+    return (seq[i::size] for i in range(size))
+
+def multiprocess_salinas(dir_path,filenames):
+    for filename in filenames:
+        weeknum = filename.split('.')[0][10:]
+        print(weeknum)
+        file_path = os.path.join(dir_path, filename)
+        print(file_path)
+        df = pd.read_csv(file_path)
+        message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
+        kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(
+            message_matrix)
+
+        with open("./ims/kcore_number_week{0}.csv".format(weeknum), "w") as myfile:
+            for ele in kcore_number_list:
+                myfile.write("%d" % ele)
+                myfile.write(",")
+            myfile.write("\n")
+        myfile.close()
+
+        with open("./ims/kcore_num_of_nodes_week{0}.csv".format(weeknum), "w") as myfile:
+            for ele in kcore_num_of_nodes_list:
+                myfile.write("%d" % ele)
+                myfile.write(",")
+            myfile.write("\n")
+        myfile.close()
+
+        with open("./ims/kcore_num_components_week{0}.csv".format(weeknum), "w") as myfile:
+            for ele in kcore_num_components_list:
+                myfile.write("%d" % ele)
+                myfile.write(",")
+            myfile.write("\n")
+        myfile.close()
+
+        with open("./ims/kcore_largest_cc_num_nodes_week{0}.csv".format(weeknum), "w") as myfile:
+            for ele in kcore_largest_cc_num_nodes_list:
+                myfile.write("%d" % ele)
+                myfile.write(",")
+            myfile.write("\n")
+        myfile.close()
+
+
 if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
     ## message matrix contains edge weight about number of messages exchanged. It gives information of a directed graph.
@@ -404,44 +448,18 @@ if __name__ == "__main__":
     # unique_users(cfg.PROCESSED_DIR_PATH)
     # common_users(cfg.PROCESSED_DIR_PATH,1)
 
-    dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files_salinas/"
-    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    # dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files_salinas/"
+    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    file_names_list = []
     for (dirpath, dirnames, filenames) in walk(dir_path):
         for filename in filenames:
-            weeknum = filename.split('.')[0][10:]
-            print(weeknum)
-            file_path = os.path.join(dir_path, filename)
-            print(file_path)
-            df = pd.read_csv(file_path)
-            message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
-            kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(message_matrix)
+            file_names_list.append(filename)
 
-            with open("./ims/kcore_number_week{0}.csv".format(weeknum), "w") as myfile:
-                for ele in kcore_number_list:
-                    myfile.write("%d" % ele)
-                    myfile.write(",")
-                myfile.write("\n")
-            myfile.close()
+    num_process = 16
+    print(file_names_list)
+    chunked_file_names_list = list(chunker_list(file_names_list,num_process))
+    print(chunked_file_names_list)
 
-            with open("./ims/kcore_num_of_nodes_week{0}.csv".format(weeknum), "w") as myfile:
-                for ele in kcore_num_of_nodes_list:
-                    myfile.write("%d" % ele)
-                    myfile.write(",")
-                myfile.write("\n")
-            myfile.close()
-
-            with open("./ims/kcore_num_components_week{0}.csv".format(weeknum), "w") as myfile:
-                for ele in kcore_num_components_list:
-                    myfile.write("%d" % ele)
-                    myfile.write(",")
-                myfile.write("\n")
-            myfile.close()
-
-            with open("./ims/kcore_largest_cc_num_nodes_week{0}.csv".format(weeknum), "w") as myfile:
-                for ele in kcore_largest_cc_num_nodes_list:
-                    myfile.write("%d" % ele)
-                    myfile.write(",")
-                myfile.write("\n")
-            myfile.close()
-
-            # break
+    for file_names in chunked_file_names_list:
+        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path,file_names,))
+        p.start()

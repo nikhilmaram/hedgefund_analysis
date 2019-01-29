@@ -14,7 +14,6 @@ from datetime import  datetime,timedelta,date
 
 import itertools
 
-
 f = open(cfg.STOCK_FILE, 'r')
 stock_list = []
 for line in f.readlines():
@@ -54,7 +53,6 @@ def classify_ims(text):
             return 1
 
     return 0
-
 
 def json_serial(obj):
     if isinstance(obj, datetime):
@@ -181,7 +179,6 @@ def process_dictionary(im_file_weekly):
         im_df_list = [im_df]
         del im_df_list
 
-
 def parse_all_files(pathlistSorted):
     ## To get the last part of directory
 
@@ -222,7 +219,7 @@ def parse_all_files(pathlistSorted):
         except:
             print("Date not processed correctly")
 
-    num_process = 16
+    num_process = 1
     split_dictionaries = split_dict(im_file_weekly,num_process)
     # print(split_dictionaries)
     print("Completed splitting files in weeks {0}".format(time.time() - start_time_splitting_weeks))
@@ -232,6 +229,19 @@ def parse_all_files(pathlistSorted):
                                     name="Process {0}".format(process_num))
         process_num = process_num + 1
         p.start()
+
+def split_dfs(file_path,file_names):
+    for file_name in file_names:
+        if file_name.startswith("im_df"):
+            df = pd.read_csv(file_path+file_name)
+            df_group_list = df.groupby('classify')
+            for classify, df_grouped in df_group_list:
+                if(classify):
+                    df_grouped.to_csv("./processed_business/"+file_name)
+                else:
+                    df_grouped.to_csv("./processed_personal/"+file_name)
+
+
 
 
 def unique_member(directory):
@@ -262,21 +272,30 @@ if __name__ == "__main__":
     # unique_member(cfg.DIRECTORY_PATH)
     ## Reads all the directories present
 
-    print("started running")
-    start_time_main = time.time()
-    file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
-    # file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
+    # print("started running")
+    # start_time_main = time.time()
+    # # file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
+    # # file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
     # file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
-    pathlist = []
-    for (dirpath, dirnames, filenames) in walk(file_path):
-        for dire in dirnames:
-            pathlist.append(os.path.join(file_path, dire))
-        break
+    #
+    # pathlist = []
+    # for (dirpath, dirnames, filenames) in walk(file_path):
+    #     for dire in dirnames:
+    #         pathlist.append(os.path.join(file_path, dire))
+    #     break
+    #
+    # pathlistSorted = sorted(pathlist)
+    # # print(pathlistSorted)
+    # print("Completed sorting the directories and splitting them in {0}".format(time.time()-start_time_main))
+    # parse_all_files(pathlistSorted)
 
-    pathlistSorted = sorted(pathlist)
-    # print(pathlistSorted)
-    print("Completed sorting the directories and splitting them in {0}".format(time.time()-start_time_main))
-    parse_all_files(pathlistSorted)
+    file_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    # file_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/processed_files/"
+    file_list = []
+    for(dirpath,dirnames,filnames) in walk(file_path):
+        for filename in filnames:
+            file_list.append(filename)
 
+    split_dfs(file_path,file_list)
 
 

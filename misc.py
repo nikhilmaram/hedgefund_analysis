@@ -28,9 +28,13 @@ def calculate_week(year,month,day):
     week_num = int((curr_monday - start_monday).days / 7)
     print("Week Number : {0}".format(week_num))
 
-
+def calculate_date(start_date,week):
+    end_date = start_date + timedelta(days=week*7)
+    return end_date
 
 if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
     # create_stock_file('./performance_data/Trader_Book_Account.xlsx')
-    calculate_week(2008,9,4)
+    # calculate_week(2008,9,4)
+    start_date = date(2006, 7, 31)
+    print(calculate_date(start_date,2))

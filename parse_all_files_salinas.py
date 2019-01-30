@@ -231,6 +231,7 @@ def parse_all_files(pathlistSorted):
         p.start()
 
 def split_dfs(file_path,file_names):
+    """Splits the dfs into personal and business"""
     for file_name in file_names:
         if file_name.startswith("im_df"):
             df = pd.read_csv(file_path+file_name)
@@ -272,30 +273,37 @@ if __name__ == "__main__":
     # unique_member(cfg.DIRECTORY_PATH)
     ## Reads all the directories present
 
-    # print("started running")
-    # start_time_main = time.time()
-    # # file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
-    # # file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
-    # file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
-    #
-    # pathlist = []
-    # for (dirpath, dirnames, filenames) in walk(file_path):
-    #     for dire in dirnames:
-    #         pathlist.append(os.path.join(file_path, dire))
-    #     break
-    #
-    # pathlistSorted = sorted(pathlist)
-    # # print(pathlistSorted)
-    # print("Completed sorting the directories and splitting them in {0}".format(time.time()-start_time_main))
-    # parse_all_files(pathlistSorted)
+    print("started running")
+    #########################################################################################################
+    ### To Create the data frame
+    start_time_main = time.time()
+    file_path = '/local/home/student/sainikhilmaram/hedgefund_data/data/'
+    file_path = '/Users/sainikhilmaram/Desktop/nikhil_hedgefund/data'
+    file_path = '/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/sample_files/'
 
-    file_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
-    # file_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/processed_files/"
+    pathlist = []
+    for (dirpath, dirnames, filenames) in walk(file_path):
+        for dire in dirnames:
+            pathlist.append(os.path.join(file_path, dire))
+        break
+
+    pathlistSorted = sorted(pathlist)
+    # print(pathlistSorted)
+    print("Completed sorting the directories and splitting them in {0}".format(time.time()-start_time_main))
+    parse_all_files(pathlistSorted)
+
+    #########################################################################################################
+
+    ### TO split the files
+    # file_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    file_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/processed_files/"
     file_list = []
     for(dirpath,dirnames,filnames) in walk(file_path):
         for filename in filnames:
             file_list.append(filename)
 
     split_dfs(file_path,file_list)
+
+    #########################################################################################################
 
 

@@ -3,32 +3,30 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from os import walk
 import pandas as pd
 import multiprocessing
-
+sid = SentimentIntensityAnalyzer()
 
 def chunker_list(seq, size):
     return (seq[i::size] for i in range(size))
 
+def sentiment_assign(text):
+    try:
+        sentiment_value = sid.polarity_scores(text)['compound']
+    except:
+        sentiment_value = 0
+    if sentiment_value > 0.05:
+        sentiment = 1
+    elif sentiment_value < -0.05:
+        sentiment = -1
+    else:
+        sentiment = 0
+    return sentiment
+
 def sentiment_classify(dir_path,file_name_list):
-    sid = SentimentIntensityAnalyzer()
+
     for file_name in file_name_list:
         if file_name.startswith("im_df"):
-            df = pd.read_csv(dir_path + "/"+ file_name)
-            ## Creating a new column
-            df['sentiment'] = 0
-            for i in range(len(df)):
-                # print(df[i])
-                try:
-                    sentiment_value = sid.polarity_scores(df['content'][i])['compound']
-                except:
-                    sentiment_value = 0
-                if sentiment_value > 0.05:
-                    sentiment = 1
-                elif sentiment_value < -0.05:
-                    sentiment = -1
-                else:
-                    sentiment = 0
-                df['sentiment'][i] = sentiment
-
+            df = pd.read_csv(dir_path + "/"+ file_name,dtype=str)
+            df['sentiment'] = df['content'].apply(lambda x: sentiment_assign(x))
             df.to_csv("./sentiment_personal/"+file_name)
 
 
@@ -42,7 +40,7 @@ if __name__ == "__main__":
             file_names_list.append(filename)
 
     num_process = 16
-    print(file_names_list)
+    file_names_list = sorted(file_names_list)
     chunked_file_names_list = list(chunker_list(file_names_list, num_process))
     print(chunked_file_names_list)
 

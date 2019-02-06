@@ -311,6 +311,70 @@ def construct_kcore_networkx_salinas(message_matrix):
 
     return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list
 
+
+
+def construct_weighted_kcore_networkx_salinas(message_matrix):
+
+    message_matrix1 = np.zeros((len(message_matrix), len(message_matrix)))
+    for i in range(len(message_matrix)):
+        for j in range(i + 1, len(message_matrix)):
+            message_matrix1[i][j] = message_matrix[i][j] + message_matrix[j][i]
+            message_matrix1[j][i] = message_matrix1[i][j]
+
+    # for time, message_adj_list in message_adj_list_dict.items():
+    threshold = 4
+    G = nx.Graph()
+    for src in range(len(message_matrix1)):
+        for dest in range(len(message_matrix1[0])):
+            if src != dest and message_matrix1[src][dest] != 0:
+                if (message_matrix1[src][dest] > threshold):
+                    G.add_edge(src, dest, weight=message_matrix1[src][dest])
+
+    degree = np.sum(message_matrix1, axis=1)
+
+    uniqueDegree = np.unique(degree)
+    degrees = {}
+    for i in range(len(degree)):
+        degrees[i] = int(degree[i])
+
+    # print(degrees)
+    kcore_num_of_nodes_list = []
+    kcore_number_list = []
+    kcore_num_components_list = []
+    kcore_largest_cc_num_nodes_list = []
+
+    ## Gives the max number of cores that graph can have
+    # for max_core in range(len(uniqueDegree)):
+
+    for max_core in range(25):
+        # print(uniqueDegree[max_core])
+        # kcore_G = core.k_core(G, degrees, uniqueDegree[max_core])
+        # kcore_G = nx.k_core(G, uniqueDegree[max_core])
+        kcore_G = nx.k_core(G, max_core)
+
+        kcore_num_of_nodes = len(kcore_G.nodes)
+        subgraphs = nx.connected_component_subgraphs(kcore_G)
+        kcore_num_components = len(list(subgraphs))
+        kcore_num_components_list.append(kcore_num_components)
+
+        if (kcore_num_of_nodes == 0):
+            break
+
+        kcore_num_of_nodes_list.append(kcore_num_of_nodes)
+        # kcore_number_list.append(uniqueDegree[max_core])
+        kcore_number_list.append(max_core)
+        kcore_largest_cc = max(nx.connected_component_subgraphs(kcore_G), key=len)
+        kcore_largest_cc_num_nodes = len(kcore_largest_cc.nodes)
+        kcore_largest_cc_num_nodes_list.append(kcore_largest_cc_num_nodes)
+
+        print("Number of {0}-core Nodes: {1}, Connected Components : {2}, largest CC Size: {3}"
+              .format(max_core,kcore_num_of_nodes,kcore_num_components,kcore_largest_cc_num_nodes))
+    # print(kcore_num_of_nodes_list)
+
+    return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list
+
+
+
 def return_kcore_nodes(message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict,k):
     """Returns kcore nodes of the graph"""
     kcore_nodes_dict = {}
@@ -390,47 +454,53 @@ def common_users(directory,k):
 
     print("K : {0}, Total Unique Nodes: {1}".format(k,len(total_unique_nodes)))
 
+
 def chunker_list(seq, size):
     return (seq[i::size] for i in range(size))
 
-def multiprocess_salinas(dir_path,filenames):
+def multiprocess_salinas(dir_path,filenames,output_path):
     for filename in filenames:
-        weeknum = filename.split('.')[0][10:]
-        print(weeknum)
-        file_path = os.path.join(dir_path, filename)
-        print(file_path)
-        df = pd.read_csv(file_path)
-        message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
-        kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(
-            message_matrix)
+        if filename.startswith("im_df"):
+            weeknum = filename.split('.')[0][10:]
+            print(weeknum)
+            file_path = os.path.join(dir_path, filename)
+            print(file_path)
+            df = pd.read_csv(file_path)
+            message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
+            ## Unweighted
+            # kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(
+            #     message_matrix)
 
-        with open("./ims/kcore_number_week{0}.csv".format(weeknum), "w") as myfile:
-            for ele in kcore_number_list:
-                myfile.write("%d" % ele)
-                myfile.write(",")
-            myfile.write("\n")
-        myfile.close()
+            kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_weighted_kcore_networkx_salinas(
+                message_matrix)
 
-        with open("./ims/kcore_num_of_nodes_week{0}.csv".format(weeknum), "w") as myfile:
-            for ele in kcore_num_of_nodes_list:
-                myfile.write("%d" % ele)
-                myfile.write(",")
-            myfile.write("\n")
-        myfile.close()
+            with open(output_path + "/kcore_number_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_number_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
 
-        with open("./ims/kcore_num_components_week{0}.csv".format(weeknum), "w") as myfile:
-            for ele in kcore_num_components_list:
-                myfile.write("%d" % ele)
-                myfile.write(",")
-            myfile.write("\n")
-        myfile.close()
+            with open(output_path + "/kcore_num_of_nodes_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_num_of_nodes_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
 
-        with open("./ims/kcore_largest_cc_num_nodes_week{0}.csv".format(weeknum), "w") as myfile:
-            for ele in kcore_largest_cc_num_nodes_list:
-                myfile.write("%d" % ele)
-                myfile.write(",")
-            myfile.write("\n")
-        myfile.close()
+            with open(output_path + "/kcore_num_components_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_num_components_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
+
+            with open(output_path + "/kcore_largest_cc_num_nodes_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_largest_cc_num_nodes_list:
+                    myfile.write("%d" % ele)
+                    myfile.write(",")
+                myfile.write("\n")
+            myfile.close()
 
 
 if __name__ == "__main__":
@@ -448,8 +518,11 @@ if __name__ == "__main__":
     # unique_users(cfg.PROCESSED_DIR_PATH)
     # common_users(cfg.PROCESSED_DIR_PATH,1)
 
-    # dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files_salinas/"
+    # dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/processed_files/"
+
     dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    output_path = "./kcore_weighted/threshold_4/"
+
     file_names_list = []
     for (dirpath, dirnames, filenames) in walk(dir_path):
         for filename in filenames:
@@ -461,5 +534,41 @@ if __name__ == "__main__":
     print(chunked_file_names_list)
 
     for file_names in chunked_file_names_list:
-        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path,file_names,))
+        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path,file_names,output_path,))
+        p.start()
+
+
+    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_business/"
+    output_path = "./kcore_business_weighted/threshold_4/"
+
+    file_names_list = []
+    for (dirpath, dirnames, filenames) in walk(dir_path):
+        for filename in filenames:
+            file_names_list.append(filename)
+
+    num_process = 16
+    print(file_names_list)
+    chunked_file_names_list = list(chunker_list(file_names_list, num_process))
+    print(chunked_file_names_list)
+
+    for file_names in chunked_file_names_list:
+        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
+        p.start()
+
+
+    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_personal/"
+    output_path = "./kcore_personal_weighted/threshold_4/"
+
+    file_names_list = []
+    for (dirpath, dirnames, filenames) in walk(dir_path):
+        for filename in filenames:
+            file_names_list.append(filename)
+
+    num_process = 16
+    print(file_names_list)
+    chunked_file_names_list = list(chunker_list(file_names_list, num_process))
+    print(chunked_file_names_list)
+
+    for file_names in chunked_file_names_list:
+        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
         p.start()

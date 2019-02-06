@@ -5,11 +5,14 @@ import numpy as np
 from matplotlib.dates import MonthLocator, WeekdayLocator, DateFormatter
 from datetime import  datetime,timedelta,date
 from matplotlib.dates import MONDAY
+import pandas as pd
+
+import collections
+from collections import Counter
 
 def calculate_date(start_date,week):
     end_date = start_date + timedelta(days=week*7)
     return end_date
-
 
 def plot_element_kcore(dir_path,week_start,week_end,element_filename_start,xlabel,ylabel,title):
     """Plots largest connected component(cc)"""
@@ -76,29 +79,100 @@ def plot_element_kcore(dir_path,week_start,week_end,element_filename_start,xlabe
     plt.ylabel(ylabel)
     plt.title(title)
     plt.legend()
+    # plt.grid()
+    plt.show()
+
+
+def plot_edge_distribution(edge_directory):
+    ### plots the edge distribution
+    file_names_list = []
+    for (dirpath, dirnames, filenames) in os.walk(edge_directory):
+        for filename in filenames:
+            if filename.startswith("edge_distribution"):
+                file_names_list.append(os.path.join(edge_directory, filename))
+
+    plot_dict = {}
+    for file_name in file_names_list:
+        with open(file_name) as csv_file:
+            reader = csv.reader(csv_file)
+            mydict = dict((int(float(x[0])), int(x[1])) for x in reader)
+            # print(mydict)
+            plot_dict = Counter(plot_dict) + Counter(mydict)
+            # print(plot_dict)
+
+    plot_dict.pop(0,None)
+    plot_dict = collections.OrderedDict(sorted(plot_dict.items()))
+    keys_list = list(plot_dict.keys())
+    values_list = list(plot_dict.values())
+
+    print(keys_list,values_list)
+
+    end_number = 50
+    plt.plot(keys_list[:end_number],values_list[:end_number])
+    plt.show()
+
+
+def generate_delata_values(df_grouped):
+    print(df_grouped)
+    dates = df_grouped["date"].tolist()
+    # delta = df_grouped["delta"].tolist()
+    performance = df_grouped["PnL_MTD_adjusted"].tolist()
+    # delta = [float(accounting[i + 1]) - float(accounting[i]) for i in range(len(accounting) - 1)]
+    # delta.insert(0, 0)
+    return dates,performance
+
+def plot_book(file):
+    df = pd.read_csv(file)
+    # print(df)
+    fig, ax = plt.subplots()
+    for book,df_grouped in df.groupby("book"):
+        if book == "ADAM":
+            # print(book)
+            # print(df_grouped[:100])
+            ## Replacing nan with 0
+            df_grouped["date"] = df_grouped["date"].apply(lambda x : datetime.strptime(x,'%m/%d/%Y'))
+            df_grouped = df_grouped.sort_values("date")
+            df_grouped =df_grouped[["date","delta","PnL_MTD_adjusted","AccountingFile_PnL_MTD",]]
+            dates,performance = generate_delata_values(df_grouped)
+            # print(dates)
+            # print(delta)
+            end_number = 100
+            ax.plot_date(dates[:end_number], performance[:end_number] , '-o', label=book)
+
+    months = MonthLocator(range(1, 13), bymonthday=1, interval=1)
+    monthsFmt = DateFormatter("%b '%y")
+    mondays = WeekdayLocator(MONDAY)
+
+    ax.xaxis.set_major_locator(months)
+    ax.xaxis.set_major_formatter(monthsFmt)
+    ax.xaxis.set_minor_locator(mondays)
+    ax.autoscale_view()
+    # plt.plot_date(date[:10],delta[:10])
+    plt.legend()
     plt.show()
 
 
 if __name__ == "__main__":
+    pd.set_option('display.max_colwidth', -1)
+    pd.set_option("display.max_rows", -1)
 
-    complete_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore/"
-    business_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_business/"
-    personal_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_personal/"
-
+    complete_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_weighted/threshold_100/"
+    business_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_business_weighted/threshold_100/"
+    personal_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_personal_weighted/threshold_100/"
 
     ### Largest Connected Component
 
-    # plot_element_kcore(complete_ims_kcore_path, 75, 150, "kcore_largest_cc_num_nodes", "Time",
+    # plot_element_kcore(complete_ims_kcore_path, 0, 75, "kcore_largest_cc_num_nodes", "Time",
     #                    "Number of Nodes in Largest Connected Component",
-    #                    "Number of Nodes in Largest Connected Component Vs Time")
+    #                    "Threshold 100 : Number of Nodes in Largest Connected Component Vs Time")
 
-    # plot_element_kcore(business_ims_kcore_path, 225, 265, "kcore_largest_cc_num_nodes", "Time",
+    # plot_element_kcore(business_ims_kcore_path, 0, 75, "kcore_largest_cc_num_nodes", "Time",
     #                    "Number of Nodes in Largest Connected Component",
-    #                    "Number of Nodes in Largest Connected Component Vs Time : Business")
-
-    # plot_element_kcore(personal_ims_kcore_path, 225, 265, "kcore_largest_cc_num_nodes", "Time",
+    #                    "Threshold 100 : Number of Nodes in Largest Connected Component Vs Time : Business")
+    #
+    # plot_element_kcore(personal_ims_kcore_path, 0, 75, "kcore_largest_cc_num_nodes", "Time",
     #                    "Number of Nodes in Largest Connected Component",
-    #                    "Number of Nodes in Largest Connected Component Vs Time : Personal")
+    #                    "Threshold 100 : Number of Nodes in Largest Connected Component Vs Time : Personal")
 
     # ### kcore number of nodes
     #
@@ -117,3 +191,7 @@ if __name__ == "__main__":
     # plot_element_kcore(business_ims_kcore_path, 0, 75, "kcore_num_components", "Time", "Number of Components in K-core",
     #                    "Number of Components in K-Core Vs Time : Business")
     #
+
+    # plot_edge_distribution("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/edge_distribution/")
+
+    plot_book("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/PnL_final.csv")

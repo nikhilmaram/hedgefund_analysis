@@ -19,6 +19,7 @@ def create_stock_file(file):
     stockfile.close()
 
 def calculate_week(year,month,day):
+    ## date(yyyy,mm,dd)
     start_date = date(2006, 8, 3)
 
     start_monday = (start_date - timedelta(days=start_date.weekday()))
@@ -35,6 +36,6 @@ def calculate_date(start_date,week):
 if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
     # create_stock_file('./performance_data/Trader_Book_Account.xlsx')
-    # calculate_week(2008,9,4)
-    start_date = date(2006, 7, 31)
-    print(calculate_date(start_date,2))
+    calculate_week(2008,12,12)
+    # start_date = date(2006, 7, 31)
+    # print(calculate_date(start_date,2))

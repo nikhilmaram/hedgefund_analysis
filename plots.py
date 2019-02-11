@@ -112,13 +112,23 @@ def plot_edge_distribution(edge_directory):
     plt.show()
 
 
-def generate_delata_values(df_grouped):
+def generate_delta_values(df_grouped):
     print(df_grouped)
+    df_grouped = df_grouped.fillna(0)
     dates = df_grouped["date"].tolist()
     # delta = df_grouped["delta"].tolist()
     performance = df_grouped["PnL_MTD_adjusted"].tolist()
     # delta = [float(accounting[i + 1]) - float(accounting[i]) for i in range(len(accounting) - 1)]
     # delta.insert(0, 0)
+    df_grouped["cumulative"] = 0
+    ## need to adjust for month ending
+    cumulative_sum = 0
+    for month, df_month_group in df_grouped.groupby("year_month"):
+        # print(month)
+        df_grouped["cumulative"][df_grouped["year_month"]==month] = cumulative_sum + df_grouped["PnL_MTD_adjusted"][df_grouped["year_month"]==month]
+        cumulative_sum = df_grouped[df_grouped["year_month"]==month].iloc[-1]["cumulative"]
+        # print(cumulative_sum)
+    performance = df_grouped["cumulative"].tolist()
     return dates,performance
 
 def plot_book(file):
@@ -132,11 +142,9 @@ def plot_book(file):
             ## Replacing nan with 0
             df_grouped["date"] = df_grouped["date"].apply(lambda x : datetime.strptime(x,'%m/%d/%Y'))
             df_grouped = df_grouped.sort_values("date")
-            df_grouped =df_grouped[["date","delta","PnL_MTD_adjusted","AccountingFile_PnL_MTD",]]
-            dates,performance = generate_delata_values(df_grouped)
-            # print(dates)
-            # print(delta)
-            end_number = 100
+            df_grouped =df_grouped[["date","delta","PnL_MTD_adjusted","AccountingFile_PnL_MTD","year_month"]]
+            dates,performance = generate_delta_values(df_grouped)
+            end_number = -1
             ax.plot_date(dates[:end_number], performance[:end_number] , '-o', label=book)
 
     months = MonthLocator(range(1, 13), bymonthday=1, interval=1)
@@ -148,13 +156,47 @@ def plot_book(file):
     ax.xaxis.set_minor_locator(mondays)
     ax.autoscale_view()
     # plt.plot_date(date[:10],delta[:10])
+    plt.xlabel("Time")
+    plt.ylabel("Book PnL")
+    plt.title("Book PnL vs Time")
     plt.legend()
     plt.show()
 
 
+def plot_user_sentiment(file):
+    df = pd.read_csv(file,names=["date","sentiment"])
+    df["date"] = df["date"].apply(lambda x: datetime.strptime(str(x), '%m-%d-%Y'))
+    df = df.sort_values("date")
+
+    dates = df["date"].tolist()
+    sentiment = df["sentiment"].tolist()
+
+    fig, ax = plt.subplots()
+    end_number = 350
+    ax.plot_date(dates[250:end_number], sentiment[250:end_number], '-o', label="ADAM")
+    months = MonthLocator(range(1, 13), bymonthday=1, interval=1)
+    monthsFmt = DateFormatter("%b '%y")
+    mondays = WeekdayLocator(MONDAY)
+
+    ax.xaxis.set_major_locator(months)
+    ax.xaxis.set_major_formatter(monthsFmt)
+    ax.xaxis.set_minor_locator(mondays)
+    ax.autoscale_view()
+    plt.xlabel("Time")
+    plt.ylabel("Sentiment")
+    plt.title("Sentiment vs Time")
+    plt.legend()
+    plt.show()
+    # print(df)
+    # print(df["date"].tolist())
+    # print(df["sentiment"].tolist())
+    # pass
+
+
+
 if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
-    pd.set_option("display.max_rows", -1)
+    # pd.set_option("display.max_rows", -1)
 
     complete_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_weighted/threshold_100/"
     business_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_business_weighted/threshold_100/"
@@ -195,3 +237,5 @@ if __name__ == "__main__":
     # plot_edge_distribution("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/edge_distribution/")
 
     plot_book("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/PnL_final.csv")
+
+    # plot_user_sentiment("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/user_sentiment_personal/adam.csv")

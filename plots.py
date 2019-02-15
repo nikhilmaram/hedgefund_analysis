@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import csv
 import numpy as np
-from matplotlib.dates import MonthLocator, WeekdayLocator, DateFormatter
+from matplotlib.dates import MonthLocator, WeekdayLocator, DateFormatter,DayLocator
 from datetime import  datetime,timedelta,date
 from matplotlib.dates import MONDAY
 import pandas as pd
@@ -29,10 +29,7 @@ def plot_element_kcore(dir_path,week_start,week_end,element_filename_start,xlabe
                 ## mapping string to integers
                 kcore_num_file = os.path.join(dir_path, "kcore_number_week{0}.csv".format(week_num))
                 kcore_num_list = list(map(int, open(kcore_num_file).readline().strip("\n").split(",")[:-1]))
-
-
                 kcore_element_list = list(map(int, open(file_path).readline().strip("\n").split(",")[:-1]))
-
                 ### {<week_num> : {<core_number>: <largest_cc_num_nodes>} }
                 kcore_element_dict[week_num] = dict(zip(kcore_num_list, kcore_element_list))
 
@@ -57,9 +54,25 @@ def plot_element_kcore(dir_path,week_start,week_end,element_filename_start,xlabe
     for i in range(week_start, week_end):
         dates.append(calculate_date(start_date, i))
 
-    for i in range(len(y_list)):
-        # plt.plot(x, y_list[i],'-o', label='%d-core' % (i+1))
-        ax.plot_date(dates, y_list[i], '-o', label='%d-core' % (i + 1))
+    # ## Remove the outlier
+    # idx_list = [x[0] for x in enumerate(y_list[0]) if abs(x[1]) == 0]
+    # for idx in sorted(idx_list, reverse=True):
+    #     del dates[idx]
+    #     for core_number in range(1,10):
+    #         print(idx,core_number)
+    #         del y_list[core_number-1][idx]
+
+
+
+    ratio = False
+    if(ratio):
+        for i in range(1,len(y_list)):
+            # plt.plot(x, y_list[i],'-o', label='%d-core' % (i+1))
+            ax.plot_date(dates, np.divide(y_list[i],y_list[0]), '-o', label='%d-core' % (i + 1))
+    else:
+        for i in range(len(y_list)):
+            # plt.plot(x, y_list[i],'-o', label='%d-core' % (i+1))
+            ax.plot_date(dates, y_list[i], '-o', label='%d-core' % (i + 1))
 
     months = MonthLocator(range(1, 13), bymonthday=1, interval=1)
     monthsFmt = DateFormatter("%b '%y")
@@ -111,15 +124,17 @@ def plot_edge_distribution(edge_directory):
     plt.plot(keys_list[:end_number],values_list[:end_number])
     plt.show()
 
-
 def generate_delta_values(df_grouped):
-    print(df_grouped)
+    # print(df_grouped)
     df_grouped = df_grouped.fillna(0)
     dates = df_grouped["date"].tolist()
+
     # delta = df_grouped["delta"].tolist()
     performance = df_grouped["PnL_MTD_adjusted"].tolist()
     # delta = [float(accounting[i + 1]) - float(accounting[i]) for i in range(len(accounting) - 1)]
     # delta.insert(0, 0)
+    ## since MTD is given, for a new month it would be difference between end of the last month.
+
     df_grouped["cumulative"] = 0
     ## need to adjust for month ending
     cumulative_sum = 0
@@ -128,32 +143,42 @@ def generate_delta_values(df_grouped):
         df_grouped["cumulative"][df_grouped["year_month"]==month] = cumulative_sum + df_grouped["PnL_MTD_adjusted"][df_grouped["year_month"]==month]
         cumulative_sum = df_grouped[df_grouped["year_month"]==month].iloc[-1]["cumulative"]
         # print(cumulative_sum)
+
+    ## if cumulative sum is needed for performance
     performance = df_grouped["cumulative"].tolist()
+    ## if difference is needed for performance.
+    performance = [(float(performance[i + 1]) - float(performance[i]))/(float(performance[i]) +1) for i in range(len(performance) - 1)]
+    performance.insert(0, 0)
     return dates,performance
 
-def plot_book(file):
+def plot_book(file,book_name):
     df = pd.read_csv(file)
     # print(df)
     fig, ax = plt.subplots()
     for book,df_grouped in df.groupby("book"):
-        if book == "ADAM":
-            # print(book)
-            # print(df_grouped[:100])
+        if book == book_name:
+            # print(df_grouped)
             ## Replacing nan with 0
             df_grouped["date"] = df_grouped["date"].apply(lambda x : datetime.strptime(x,'%m/%d/%Y'))
             df_grouped = df_grouped.sort_values("date")
             df_grouped =df_grouped[["date","delta","PnL_MTD_adjusted","AccountingFile_PnL_MTD","year_month"]]
             dates,performance = generate_delta_values(df_grouped)
+            dates,performance = remove_outliers(dates,performance)
+            start_number = 0
             end_number = -1
-            ax.plot_date(dates[:end_number], performance[:end_number] , '-o', label=book)
+            print(dates[start_number:end_number])
+            print(performance[start_number:end_number])
+            ax.plot_date(dates[start_number:end_number], performance[start_number:end_number] , '-o', label=book)
 
-    months = MonthLocator(range(1, 13), bymonthday=1, interval=1)
+    months = MonthLocator(range(1, 13), bymonthday=3, interval=1)
+    days = DayLocator(bymonthday=range(1, 30), interval=1)
     monthsFmt = DateFormatter("%b '%y")
     mondays = WeekdayLocator(MONDAY)
 
     ax.xaxis.set_major_locator(months)
     ax.xaxis.set_major_formatter(monthsFmt)
     ax.xaxis.set_minor_locator(mondays)
+    # ax.xaxis.set_minor_locator(days)
     ax.autoscale_view()
     # plt.plot_date(date[:10],delta[:10])
     plt.xlabel("Time")
@@ -163,7 +188,14 @@ def plot_book(file):
     plt.show()
 
 
-def plot_user_sentiment(file):
+def remove_outliers(dates,performance):
+    idx_list = [x[0] for x in enumerate(performance) if abs(x[1]) > 2]
+    for idx in sorted(idx_list, reverse=True):
+        del performance[idx]
+        del dates[idx]
+    return dates,performance
+
+def plot_user_sentiment(file,title,label):
     df = pd.read_csv(file,names=["date","sentiment"])
     df["date"] = df["date"].apply(lambda x: datetime.strptime(str(x), '%m-%d-%Y'))
     df = df.sort_values("date")
@@ -171,20 +203,27 @@ def plot_user_sentiment(file):
     dates = df["date"].tolist()
     sentiment = df["sentiment"].tolist()
 
+    print(dates)
     fig, ax = plt.subplots()
-    end_number = 350
-    ax.plot_date(dates[250:end_number], sentiment[250:end_number], '-o', label="ADAM")
+    start_number = 540
+    end_number = 585
+    print(sentiment[start_number:end_number])
+    ax.plot_date(dates[start_number:end_number], sentiment[start_number:end_number], '-o', label=label)
+    days = DayLocator(bymonthday=range(1,30),interval=1)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=1)
-    monthsFmt = DateFormatter("%b '%y")
+    monthsFmt = DateFormatter("%b %y")
     mondays = WeekdayLocator(MONDAY)
 
     ax.xaxis.set_major_locator(months)
+    # ax.xaxis.set_major_locator(days)
     ax.xaxis.set_major_formatter(monthsFmt)
-    ax.xaxis.set_minor_locator(mondays)
+    # ax.xaxis.set_minor_locator(mondays)
+    ax.xaxis.set_minor_locator(days)
     ax.autoscale_view()
+
     plt.xlabel("Time")
     plt.ylabel("Sentiment")
-    plt.title("Sentiment vs Time")
+    plt.title(title)
     plt.legend()
     plt.show()
     # print(df)
@@ -204,15 +243,15 @@ if __name__ == "__main__":
 
     ### Largest Connected Component
 
-    # plot_element_kcore(complete_ims_kcore_path, 0, 75, "kcore_largest_cc_num_nodes", "Time",
+    # plot_element_kcore(complete_ims_kcore_path, 120, 150, "kcore_largest_cc_num_nodes", "Time",
     #                    "Number of Nodes in Largest Connected Component",
-    #                    "Threshold 100 : Number of Nodes in Largest Connected Component Vs Time")
+    #                    "Number of Nodes in Largest Connected Component Vs Time")
 
-    # plot_element_kcore(business_ims_kcore_path, 0, 75, "kcore_largest_cc_num_nodes", "Time",
+    # plot_element_kcore(business_ims_kcore_path, 120, 150, "kcore_largest_cc_num_nodes", "Time",
     #                    "Number of Nodes in Largest Connected Component",
     #                    "Threshold 100 : Number of Nodes in Largest Connected Component Vs Time : Business")
-    #
-    # plot_element_kcore(personal_ims_kcore_path, 0, 75, "kcore_largest_cc_num_nodes", "Time",
+    # # #
+    # plot_element_kcore(personal_ims_kcore_path, 120, 150, "kcore_largest_cc_num_nodes", "Time",
     #                    "Number of Nodes in Largest Connected Component",
     #                    "Threshold 100 : Number of Nodes in Largest Connected Component Vs Time : Personal")
 
@@ -233,9 +272,20 @@ if __name__ == "__main__":
     # plot_element_kcore(business_ims_kcore_path, 0, 75, "kcore_num_components", "Time", "Number of Components in K-core",
     #                    "Number of Components in K-Core Vs Time : Business")
     #
-
     # plot_edge_distribution("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/edge_distribution/")
 
-    plot_book("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/PnL_final.csv")
+    plot_book(
+        "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/PnL_final.csv",
+        "ALTM")
 
-    # plot_user_sentiment("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/user_sentiment_personal/adam.csv")
+    # plot_user_sentiment(
+    #     "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/user_sentiment_personal/wolfbergADAM.csv",
+    #     "Sentiment vs Time : Personal: Received Messages","ADAM")
+
+    # plot_user_sentiment(
+    #     "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/user_sentiment_business/feinsteinandrea.csv",
+    #     "Sentiment vs Time : Business : Sent Messages","AFEI")
+
+    # plot_user_sentiment(
+    #     "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/user_sentiment_personal/sapanskilawrence_sedoymichael_received.csv",
+    #     "Sentiment vs Time : Personal: Received Messages","MENG")

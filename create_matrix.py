@@ -12,12 +12,34 @@ import matplotlib as mpl
 mpl.rcParams['image.cmap'] = 'viridis'
 import pickle
 
+address_to_user_dict = {}
+with open(
+        "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/address_to_user_mapping.pkl",
+        "rb") as handle:
+    address_to_user_dict = pickle.load(handle)
+
+def map_address_user(address):
+    try:
+        user = address_to_user_dict[address]
+        return user
+    except:
+        return address.split('@')[0]
+        # return address
+
+
 def create_matrix(im_df):
     """Takes in a df and constructs message adjacency list and message matrix """
     im_columns = ['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content']
 
-    unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
-    print("the number of unique buddues: %d" % len(unique_im_buddies))
+    im_df["sender_user"] = im_df["sender_buddy"].apply(lambda x : map_address_user(x))
+    im_df["receiver_user"] = im_df["receiver_buddy"].apply(lambda x : map_address_user(x))
+
+    ## Map
+    # unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
+    # print("the number of unique buddues: %d" % len(unique_im_buddies))
+
+    unique_im_buddies = im_df['sender_user'].append(im_df['receiver_user']).unique().tolist()
+    print("the number of unique buddies: %d" % len(unique_im_buddies))
 
     buddy_to_idx = {}
     idx_to_buddy = {}
@@ -37,10 +59,10 @@ def create_matrix(im_df):
     message_adj_list = [set() for _ in range(unique_im_buddies_count)]
 
     for index, row in im_df.iterrows():
-        sender_buddy_idx = buddy_to_idx[row['sender_buddy']]
-        # sender_buddy_idx = buddy_to_idx[row['sender']]
-        receiver_buddy_idx = buddy_to_idx[row['receiver_buddy']]
-        # receiver_buddy_idx = buddy_to_idx[row['receiver']]
+        # sender_buddy_idx = buddy_to_idx[row['sender_buddy']]
+        sender_buddy_idx = buddy_to_idx[row['sender_user']]
+        # receiver_buddy_idx = buddy_to_idx[row['receiver_buddy']]
+        receiver_buddy_idx = buddy_to_idx[row['receiver_user']]
         message_matrix[sender_buddy_idx][receiver_buddy_idx] = message_matrix[sender_buddy_idx][receiver_buddy_idx] + 1
         message_adj_list[sender_buddy_idx].add(receiver_buddy_idx)
         # message_adj_list[receiver_buddy_idx].add(sender_buddy_idx)
@@ -173,6 +195,7 @@ def construct_kcore_networkx(message_adj_list,k):
         for dest in message_adj_list[src]:
             G.add_edge(src, dest)
 
+    G.remove_edges_from(nx.selfloop_edges(G))
     kcore_G = nx.k_core(G,k)
     print(kcore_G.nodes)
     pos = nx.spring_layout(kcore_G)
@@ -555,7 +578,7 @@ if __name__ == "__main__":
     # df = create_df(cfg.PROCESSED_DIR_PATH)
     # df = pd.read_csv(cfg.PROCESSED_DIR_PATH + "im_df_Export_0x00000152_20070222130307_20070223175543_17075.csv")
     df = pd.read_csv(
-        "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week74.csv")
+        "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week78.csv")
     # message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict = create_matrix_dict(df)
     message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
     # create_graph(message_adj_list_dict)

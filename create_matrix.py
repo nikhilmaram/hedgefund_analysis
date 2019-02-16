@@ -10,22 +10,7 @@ import multiprocessing
 import matplotlib as mpl
 
 mpl.rcParams['image.cmap'] = 'viridis'
-
-def create_df(directory):
-    """Creates a data frame by reading all im files in processed directory"""
-    # im_df = pd.read_csv(file)
-    total_df = pd.DataFrame()
-    for (dirpath, dirnames, filenames) in walk(directory):
-        for filename in filenames:
-            if (filename.startswith("im_df")):
-                df = pd.read_csv(dirpath+'/'+filename)
-                total_df = total_df.append(df,ignore_index=True)
-    total_im_buddies_unique = total_df['sender_buddy'].append(total_df['receiver_buddy']).unique().tolist()
-    # total_im_buddies_unique = total_df['sender'].append(total_df['receiver']).unique().tolist()
-
-    print("Total Unique Buddies : {0}".format(len(total_im_buddies_unique)))
-    return total_df
-
+import pickle
 
 def create_matrix(im_df):
     """Takes in a df and constructs message adjacency list and message matrix """
@@ -58,7 +43,7 @@ def create_matrix(im_df):
         # receiver_buddy_idx = buddy_to_idx[row['receiver']]
         message_matrix[sender_buddy_idx][receiver_buddy_idx] = message_matrix[sender_buddy_idx][receiver_buddy_idx] + 1
         message_adj_list[sender_buddy_idx].add(receiver_buddy_idx)
-        message_adj_list[receiver_buddy_idx].add(sender_buddy_idx)
+        # message_adj_list[receiver_buddy_idx].add(sender_buddy_idx)
 
     return message_matrix,message_adj_list,buddy_to_idx,idx_to_buddy
 
@@ -180,76 +165,76 @@ def construct_k_core_degrees(message_adj_list_dict,k):
         plt.gcf().clear()
         break
 
-def construct_kcore_networkx(message_adj_list_dict,k):
+def construct_kcore_networkx(message_adj_list,k):
     """Plot the kcore nodes of the graph by the date"""
-    for time, message_adj_list in message_adj_list_dict.items():
-        G = nx.Graph()
-        for src in range(len(message_adj_list)):
-            for dest in message_adj_list[src]:
-                G.add_edge(src, dest)
+    # for time, message_adj_list in message_adj_list_dict.items():
+    G = nx.Graph()
+    for src in range(len(message_adj_list)):
+        for dest in message_adj_list[src]:
+            G.add_edge(src, dest)
 
-        kcore_G = nx.k_core(G,k)
-        print(kcore_G.nodes)
-        pos = nx.spring_layout(kcore_G)
-        num_nodes = len(kcore_G.nodes)
-        print("Number of k-core Nodes: {0}".format(num_nodes))
-        colors = [1] * num_nodes
-        nx.draw_networkx_nodes(kcore_G, pos, node_size=30,
-                               node_color=colors, edgecolors='k',
-                               cmap=plt.cm.Greys)
+    kcore_G = nx.k_core(G,k)
+    print(kcore_G.nodes)
+    pos = nx.spring_layout(kcore_G)
+    num_nodes = len(kcore_G.nodes)
+    print("Number of k-core Nodes: {0}".format(num_nodes))
+    colors = [1] * num_nodes
+    nx.draw_networkx_nodes(kcore_G, pos, node_size=30,
+                           node_color=colors, edgecolors='k',
+                           cmap=plt.cm.Greys)
 
-        nx.draw_networkx_edges(kcore_G, pos, alpha=0.5)
-        plt.title("{0}-core Graph for Date : {1}".format(k,time))
-        plt.show()
-        break
+    nx.draw_networkx_edges(kcore_G, pos, alpha=0.5)
+    # plt.title("{0}-core Graph for Date : {1}".format(k,time))
+    plt.show()
+        # break
 
-def color_kcore_networkx(message_adj_list_dict):
+def color_kcore_networkx(message_adj_list):
     """Colors the graph based on core level"""
     loop_count = 0
-    for time, message_adj_list in message_adj_list_dict.items():
-        G = nx.Graph()
-        for src in range(len(message_adj_list)):
-            for dest in message_adj_list[src]:
-                G.add_edge(src, dest)
+    # for time, message_adj_list in message_adj_list_dict.items():
+    G = nx.Graph()
+    for src in range(len(message_adj_list)):
+        for dest in message_adj_list[src]:
+            G.add_edge(src, dest)
 
 
-        colors = np.array(['1'] * len(G.nodes))
-        pos = nx.spring_layout(G)
+    colors = np.array(['1'] * len(G.nodes))
+    pos = nx.spring_layout(G)
 
-        ## Gives the max number of cores that graph can have
-        max_core = 1
-        for max_core in range(1,100):
-            kcore_G = nx.k_core(G,max_core)
-            # print(kcore_G.nodes)
-            if(len(kcore_G.nodes) == 0):
-                break
-            colors[kcore_G.nodes] = max_core
-            num_nodes = len(kcore_G.nodes)
-            print("Number of {0}-core Nodes: {1}".format(max_core,num_nodes))
-
-        plt.title("Graph for Date : {0}".format(time))
-
-        N = max_core-1
-        # define the colormap
-        cmap = plt.get_cmap('jet')
-        # extract all colors from the .jet map
-        cmaplist = [cmap(i) for i in range(cmap.N)]
-        # create the new map
-        cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
-
-        # define the bins and normalize
-        bounds = np.linspace(0, N, N + 1)
-        scat = nx.draw_networkx_nodes(G, pos, node_size=30,
-                                      node_color=colors, edgecolors='k',cmap=cmap)
-        nx.draw_networkx_edges(G, pos, alpha=0.5)
-        cb = plt.colorbar(scat, spacing='proportional', ticks=bounds)
-        cb.set_label('Custom cbar')
-        plt.show()
-        print("--------------------------------------------------------")
-
-        if(loop_count == 10):
+    ## Gives the max number of cores that graph can have
+    max_core = 1
+    for max_core in range(1,10):
+        kcore_G = nx.k_core(G,max_core)
+        # print(kcore_G.nodes)
+        if(len(kcore_G.nodes) == 0):
             break
-        loop_count = loop_count + 1
+        colors[kcore_G.nodes] = max_core
+        num_nodes = len(kcore_G.nodes)
+        print("Number of {0}-core Nodes: {1}".format(max_core,num_nodes))
+
+    # plt.title("Graph for Date : {0}".format(time))
+
+    N = max_core-1
+    # define the colormap
+    cmap = plt.get_cmap('jet')
+    # extract all colors from the .jet map
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    # create the new map
+    cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
+
+    # define the bins and normalize
+    bounds = np.linspace(0, N, N + 1)
+    scat = nx.draw_networkx_nodes(G, pos, node_size=30,
+                                  node_color=colors, edgecolors='k',cmap=cmap)
+    nx.draw_networkx_edges(G, pos, alpha=0.5)
+    cb = plt.colorbar(scat, spacing='proportional', ticks=bounds)
+    cb.set_label('Custom cbar')
+    plt.show()
+    print("--------------------------------------------------------")
+
+        # if(loop_count == 10):
+        #     break
+        # loop_count = loop_count + 1
         # break
 
 
@@ -312,7 +297,6 @@ def construct_kcore_networkx_salinas(message_matrix):
     return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list
 
 
-
 def construct_weighted_kcore_networkx_salinas(message_matrix):
 
     message_matrix1 = np.zeros((len(message_matrix), len(message_matrix)))
@@ -372,6 +356,66 @@ def construct_weighted_kcore_networkx_salinas(message_matrix):
     # print(kcore_num_of_nodes_list)
 
     return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list
+
+
+def trader_in_kcore(message_matrix,idx_to_buddy_dict,buddy_to_idx_dict):
+
+    address_file_name = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/Address_linkfile.txt"
+    f = open(address_file_name, "r")
+    user_address_list = []
+    for line in f.readlines():
+        line_split = line.split()
+        address = line_split[-1]
+        user_address_list.append(address)
+
+    traders_idx_list = []
+    for buddy in buddy_to_idx_dict.keys():
+        if buddy in user_address_list:
+            traders_idx_list.append(buddy_to_idx_dict[buddy])
+
+    print(traders_idx_list)
+
+    message_matrix1 = np.zeros((len(message_matrix), len(message_matrix)))
+    for i in range(len(message_matrix)):
+        for j in range(i + 1, len(message_matrix)):
+            message_matrix1[i][j] = message_matrix[i][j] + message_matrix[j][i]
+            message_matrix1[j][i] = message_matrix1[i][j]
+
+    G = nx.Graph()
+    for src in range(len(message_matrix1)):
+        for dest in range(len(message_matrix1[0])):
+            if src != dest and message_matrix1[src][dest] != 0:
+                G.add_edge(src, dest, weight=message_matrix1[src][dest])
+
+    degree = np.sum(message_matrix1, axis=1)
+
+    uniqueDegree = np.unique(degree)
+    degrees = {}
+    for i in range(len(degree)):
+        degrees[i] = int(degree[i])
+
+
+    ## Gives the max number of cores that graph can have
+    # for max_core in range(len(uniqueDegree)):
+
+    for max_core in range(2,25):
+        # print(uniqueDegree[max_core])
+        # kcore_G = core.k_core(G, degrees, uniqueDegree[max_core])
+        # kcore_G = nx.k_core(G, uniqueDegree[max_core])
+        kcore_G = nx.k_core(G, max_core)
+
+        kcore_num_of_nodes = len(kcore_G.nodes)
+        subgraphs = nx.connected_component_subgraphs(kcore_G)
+        kcore_largest_cc = max(nx.connected_component_subgraphs(kcore_G), key=len)
+
+        count = 0
+        for kcore_node in kcore_G.nodes:
+            if kcore_node in traders_idx_list:
+                # print("Trader present in {0}-core".format(max_core))
+                count = count + 1
+        print("{0} traders in {1}- Core".format(count,max_core))
+        if (kcore_num_of_nodes == 0):
+            break
 
 
 
@@ -458,6 +502,8 @@ def common_users(directory,k):
 def chunker_list(seq, size):
     return (seq[i::size] for i in range(size))
 
+
+
 def multiprocess_salinas(dir_path,filenames,output_path):
     for filename in filenames:
         if filename.startswith("im_df"):
@@ -508,67 +554,73 @@ if __name__ == "__main__":
     ## message matrix contains edge weight about number of messages exchanged. It gives information of a directed graph.
     # df = create_df(cfg.PROCESSED_DIR_PATH)
     # df = pd.read_csv(cfg.PROCESSED_DIR_PATH + "im_df_Export_0x00000152_20070222130307_20070223175543_17075.csv")
-
+    df = pd.read_csv(
+        "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week74.csv")
     # message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict = create_matrix_dict(df)
+    message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
     # create_graph(message_adj_list_dict)
-    # construct_kcore_networkx(message_adj_list_dict,3)
+    construct_kcore_networkx(message_adj_list,1)
     # construct_k_core_degrees(message_adj_list_dict,3)
-    # color_kcore_networkx(message_adj_list_dict)
+    # color_kcore_networkx(message_adj_list)
     # kcore_nodes_dict = return_kcore_nodes(message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict,2)
     # unique_users(cfg.PROCESSED_DIR_PATH)
     # common_users(cfg.PROCESSED_DIR_PATH,1)
 
+    # df = pd.read_csv("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week76.csv")
+    # message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
+    # trader_in_kcore(message_matrix,idx_to_buddy,buddy_to_idx)
+
     # dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/processed_files/"
 
-    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
-    output_path = "./kcore_weighted/threshold_4/"
-
-    file_names_list = []
-    for (dirpath, dirnames, filenames) in walk(dir_path):
-        for filename in filenames:
-            file_names_list.append(filename)
-
-    num_process = 16
-    print(file_names_list)
-    chunked_file_names_list = list(chunker_list(file_names_list,num_process))
-    print(chunked_file_names_list)
-
-    for file_names in chunked_file_names_list:
-        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path,file_names,output_path,))
-        p.start()
-
-
-    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_business/"
-    output_path = "./kcore_business_weighted/threshold_4/"
-
-    file_names_list = []
-    for (dirpath, dirnames, filenames) in walk(dir_path):
-        for filename in filenames:
-            file_names_list.append(filename)
-
-    num_process = 16
-    print(file_names_list)
-    chunked_file_names_list = list(chunker_list(file_names_list, num_process))
-    print(chunked_file_names_list)
-
-    for file_names in chunked_file_names_list:
-        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
-        p.start()
-
-
-    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_personal/"
-    output_path = "./kcore_personal_weighted/threshold_4/"
-
-    file_names_list = []
-    for (dirpath, dirnames, filenames) in walk(dir_path):
-        for filename in filenames:
-            file_names_list.append(filename)
-
-    num_process = 16
-    print(file_names_list)
-    chunked_file_names_list = list(chunker_list(file_names_list, num_process))
-    print(chunked_file_names_list)
-
-    for file_names in chunked_file_names_list:
-        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
-        p.start()
+    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    # output_path = "./kcore_weighted/threshold_4/"
+    #
+    # file_names_list = []
+    # for (dirpath, dirnames, filenames) in walk(dir_path):
+    #     for filename in filenames:
+    #         file_names_list.append(filename)
+    #
+    # num_process = 16
+    # print(file_names_list)
+    # chunked_file_names_list = list(chunker_list(file_names_list,num_process))
+    # print(chunked_file_names_list)
+    #
+    # for file_names in chunked_file_names_list:
+    #     p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path,file_names,output_path,))
+    #     p.start()
+    #
+    #
+    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_business/"
+    # output_path = "./kcore_business_weighted/threshold_4/"
+    #
+    # file_names_list = []
+    # for (dirpath, dirnames, filenames) in walk(dir_path):
+    #     for filename in filenames:
+    #         file_names_list.append(filename)
+    #
+    # num_process = 16
+    # print(file_names_list)
+    # chunked_file_names_list = list(chunker_list(file_names_list, num_process))
+    # print(chunked_file_names_list)
+    #
+    # for file_names in chunked_file_names_list:
+    #     p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
+    #     p.start()
+    #
+    #
+    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_personal/"
+    # output_path = "./kcore_personal_weighted/threshold_4/"
+    #
+    # file_names_list = []
+    # for (dirpath, dirnames, filenames) in walk(dir_path):
+    #     for filename in filenames:
+    #         file_names_list.append(filename)
+    #
+    # num_process = 16
+    # print(file_names_list)
+    # chunked_file_names_list = list(chunker_list(file_names_list, num_process))
+    # print(chunked_file_names_list)
+    #
+    # for file_names in chunked_file_names_list:
+    #     p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
+    #     p.start()

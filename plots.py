@@ -6,6 +6,7 @@ from matplotlib.dates import MonthLocator, WeekdayLocator, DateFormatter,DayLoca
 from datetime import  datetime,timedelta,date
 from matplotlib.dates import MONDAY
 import pandas as pd
+import performance_analysis
 
 import collections
 from collections import Counter
@@ -124,32 +125,7 @@ def plot_edge_distribution(edge_directory):
     plt.plot(keys_list[:end_number],values_list[:end_number])
     plt.show()
 
-def generate_delta_values(df_grouped):
-    # print(df_grouped)
-    df_grouped = df_grouped.fillna(0)
-    dates = df_grouped["date"].tolist()
 
-    # delta = df_grouped["delta"].tolist()
-    performance = df_grouped["PnL_MTD_adjusted"].tolist()
-    # delta = [float(accounting[i + 1]) - float(accounting[i]) for i in range(len(accounting) - 1)]
-    # delta.insert(0, 0)
-    ## since MTD is given, for a new month it would be difference between end of the last month.
-
-    df_grouped["cumulative"] = 0
-    ## need to adjust for month ending
-    cumulative_sum = 0
-    for month, df_month_group in df_grouped.groupby("year_month"):
-        # print(month)
-        df_grouped["cumulative"][df_grouped["year_month"]==month] = cumulative_sum + df_grouped["PnL_MTD_adjusted"][df_grouped["year_month"]==month]
-        cumulative_sum = df_grouped[df_grouped["year_month"]==month].iloc[-1]["cumulative"]
-        # print(cumulative_sum)
-
-    ## if cumulative sum is needed for performance
-    performance = df_grouped["cumulative"].tolist()
-    ## if difference is needed for performance.
-    performance = [(float(performance[i + 1]) - float(performance[i]))/(float(performance[i]) +1) for i in range(len(performance) - 1)]
-    performance.insert(0, 0)
-    return dates,performance
 
 def plot_book(file,book_name):
     df = pd.read_csv(file)
@@ -158,12 +134,7 @@ def plot_book(file,book_name):
     for book,df_grouped in df.groupby("book"):
         if book == book_name:
             # print(df_grouped)
-            ## Replacing nan with 0
-            df_grouped["date"] = df_grouped["date"].apply(lambda x : datetime.strptime(x,'%m/%d/%Y'))
-            df_grouped = df_grouped.sort_values("date")
-            df_grouped =df_grouped[["date","delta","PnL_MTD_adjusted","AccountingFile_PnL_MTD","year_month"]]
-            dates,performance = generate_delta_values(df_grouped)
-            dates,performance = remove_outliers(dates,performance)
+            dates,performance = performance_analysis.performance_given_book(df_grouped)
             start_number = 0
             end_number = -1
             print(dates[start_number:end_number])
@@ -188,12 +159,7 @@ def plot_book(file,book_name):
     plt.show()
 
 
-def remove_outliers(dates,performance):
-    idx_list = [x[0] for x in enumerate(performance) if abs(x[1]) > 2]
-    for idx in sorted(idx_list, reverse=True):
-        del performance[idx]
-        del dates[idx]
-    return dates,performance
+
 
 def plot_user_sentiment(file,title,label):
     df = pd.read_csv(file,names=["date","sentiment"])
@@ -237,9 +203,9 @@ if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
     # pd.set_option("display.max_rows", -1)
 
-    complete_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_weighted/threshold_100/"
-    business_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_business_weighted/threshold_100/"
-    personal_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_personal_weighted/threshold_100/"
+    complete_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore/"
+    business_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_business/"
+    personal_ims_kcore_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/kcore_personal/"
 
     ### Largest Connected Component
 
@@ -276,7 +242,7 @@ if __name__ == "__main__":
 
     plot_book(
         "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/PnL_final.csv",
-        "ALTM")
+        "MENG")
 
     # plot_user_sentiment(
     #     "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/user_sentiment_personal/wolfbergADAM.csv",

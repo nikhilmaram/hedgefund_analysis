@@ -11,13 +11,18 @@ import matplotlib as mpl
 
 mpl.rcParams['image.cmap'] = 'viridis'
 import pickle
+import misc
 
 address_to_user_dict = {}
 with open(
         "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/address_to_user_mapping.pkl",
         "rb") as handle:
+# with open("./address_to_user_mapping.pkl","rb") as handle:
     address_to_user_dict = pickle.load(handle)
 
+account_to_trader_dict,trader_to_account_dict = misc.parse_trader_book()
+traders_list = trader_to_account_dict.keys()
+print(traders_list)
 def map_address_user(address):
     try:
         user = address_to_user_dict[address]
@@ -35,8 +40,8 @@ def create_matrix(im_df):
     im_df["receiver_user"] = im_df["receiver_buddy"].apply(lambda x : map_address_user(x))
 
     ## Map
-    # unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
-    # print("the number of unique buddues: %d" % len(unique_im_buddies))
+    unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
+    print("the number of unique buddues: %d" % len(unique_im_buddies))
 
     unique_im_buddies = im_df['sender_user'].append(im_df['receiver_user']).unique().tolist()
     print("the number of unique buddies: %d" % len(unique_im_buddies))
@@ -69,125 +74,34 @@ def create_matrix(im_df):
 
     return message_matrix,message_adj_list,buddy_to_idx,idx_to_buddy
 
-def create_matrix_dict(im_df):
-    """Takes in a df and constructs message adjaceny list and message matrix grouped by date"""
-    im_columns = ['sender', 'sender_buddy', 'receiver', 'receiver_buddy', 'time_stamp', 'subject', 'content']
 
-    message_adj_list_dict = {}
-    message_matrix_dict = {}
-    buddy_to_idx_dict = {}
-    idx_to_buddy_dict = {}
-
-    for time, df in im_df.groupby('time_stamp'):
-        unique_im_buddies = df['sender_buddy'].append(df['receiver_buddy']).unique().tolist()
-        # unique_im_buddies = df['sender'].append(df['receiver']).unique().tolist()
-
-        buddy_to_idx = {}
-        idx_to_buddy = {}
-
-
-        ## Assign index to each buddy
-        count = 0
-        for buddy in unique_im_buddies:
-            buddy_to_idx[buddy] = count
-            idx_to_buddy[count] = buddy
-            count = count + 1
-
-        # print(buddy_to_idx)
-        unique_im_buddies_count = len(unique_im_buddies)
-
-        print("Date : {0}, Unique Buddies Count : {1}, Number of Messages : {2} "
-              .format(time,unique_im_buddies_count,len(df.index)))
-
-        # message_matrix = np.zeros((unique_im_buddies_count,unique_im_buddies_count))
-        message_matrix = []
-        message_adj_list = [set() for _ in range(unique_im_buddies_count)]
-
-        for index, row in df.iterrows():
-            sender_buddy_idx = buddy_to_idx[row['sender_buddy']]
-            # sender_buddy_idx = buddy_to_idx[row['sender']]
-            receiver_buddy_idx = buddy_to_idx[row['receiver_buddy']]
-            # receiver_buddy_idx = buddy_to_idx[row['receiver']]
-            message_matrix[sender_buddy_idx][receiver_buddy_idx] = message_matrix[sender_buddy_idx][receiver_buddy_idx] + 1
-            message_adj_list[sender_buddy_idx].add(receiver_buddy_idx)
-            message_adj_list[receiver_buddy_idx].add(sender_buddy_idx)
-
-        ## Saving the array to text
-        # np.savetxt('matrix.txt', message_matrix, delimiter=' ',fmt='%d')
-
-        # print("Highest Number of edges : {0}".format(max(map(max,message_matrix))))
-        message_adj_list_dict[time] = message_adj_list
-        message_matrix_dict[time] = message_matrix
-        buddy_to_idx_dict[time] = buddy_to_idx
-        idx_to_buddy_dict[time] = idx_to_buddy
-
-    return message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict
-
-def create_graph(message_adj_list_dict):
+def create_graph(message_adj_list):
     """Creates graph w.r.t each day"""
-    for time, message_adj_list in message_adj_list_dict.items():
-        G = nx.Graph()
-        for src in range(len(message_adj_list)):
-            for dest in message_adj_list[src]:
-                G.add_edge(src, dest)
+    # for time, message_adj_list in message_adj_list_dict.items():
+    G = nx.Graph()
+    for src in range(len(message_adj_list)):
+        for dest in message_adj_list[src]:
+            G.add_edge(src, dest)
 
-        pos = nx.spring_layout(G)
+    pos = nx.spring_layout(G)
 
-        num_nodes = len(G.nodes)
-        colors = [1] * num_nodes
+    num_nodes = len(G.nodes)
+    colors = [1] * num_nodes
 
-        nx.draw_networkx_nodes(G, pos, node_size=30,
-                               node_color=colors, edgecolors='k',
-                               cmap=plt.cm.Greys)
+    nx.draw_networkx_nodes(G, pos, node_size=30,
+                           node_color=colors, edgecolors='k',
+                           cmap=plt.cm.Greys)
 
-        nx.draw_networkx_edges(G, pos, alpha=0.5)
+    nx.draw_networkx_edges(G, pos, alpha=0.5)
 
-        plt.title("Graph for Date : {0}".format(time))
-        # plt.axis('off')
-        plt.savefig("./graphs/weighted_graph_{0}.png".format(time))  # save as png
-        plt.show()  # display
-        # plt.gcf().clear()
+    plt.title("Graph ")
+    # plt.savefig("./graphs/weighted_graph_{0}.png".format(time))  # save as png
+    plt.show()  # display
+    # plt.gcf().clear()
 
-def construct_k_core_degrees(message_adj_list_dict,k):
-    """Remove all nodes whose degree is less than k"""
-    for time, message_adj_list in message_adj_list_dict.items():
-        G = nx.Graph()
 
-        degree_nodes = np.array([len(message_adj_list[i]) for i in range(len(message_adj_list))])
-        print(len(degree_nodes))
-        more_than_k_nodes = []
 
-        for i in range(len(degree_nodes)):
-            if (degree_nodes[i] >= k):
-                more_than_k_nodes.append(i)
-        # print(more_than_k_nodes)
-
-        ## Add an edge between the nodes if only degree of both nodes are greater than or equal to k.
-        for src in more_than_k_nodes:
-            for dest in message_adj_list[src]:
-                if dest in more_than_k_nodes:
-                    G.add_edge(src, dest)
-
-        pos = nx.spring_layout(G)
-
-        num_nodes = len(G.nodes)
-        colors = [1] * num_nodes
-        print(num_nodes)
-
-        nx.draw_networkx_nodes(G, pos, node_size=30,
-                               node_color=colors, edgecolors='k',
-                               cmap=plt.cm.Greys)
-
-        nx.draw_networkx_edges(G, pos, alpha=0.5)
-
-        plt.title("Graph for Date : {0}".format(time))
-        # plt.axis('off')
-        # plt.savefig("./graphs/weighted_graph_{0}.png".format(time))  # save as png
-        plt.show()  # display
-        plt.gcf().clear()
-        break
-
-def construct_kcore_networkx(message_adj_list,k):
+def plot_kcore_networkx(message_adj_list,k):
     """Plot the kcore nodes of the graph by the date"""
     # for time, message_adj_list in message_adj_list_dict.items():
     G = nx.Graph()
@@ -220,13 +134,13 @@ def color_kcore_networkx(message_adj_list):
         for dest in message_adj_list[src]:
             G.add_edge(src, dest)
 
-
+    G.remove_edges_from(nx.selfloop_edges(G))
     colors = np.array(['1'] * len(G.nodes))
     pos = nx.spring_layout(G)
 
     ## Gives the max number of cores that graph can have
     max_core = 1
-    for max_core in range(1,10):
+    for max_core in range(1,25):
         kcore_G = nx.k_core(G,max_core)
         # print(kcore_G.nodes)
         if(len(kcore_G.nodes) == 0):
@@ -277,6 +191,7 @@ def construct_kcore_networkx_salinas(message_matrix):
                 G.add_edge(src, dest, weight=message_matrix1[src][dest])
 
     degree = np.sum(message_matrix1, axis=1)
+    G.remove_edges_from(nx.selfloop_edges(G))
 
     uniqueDegree = np.unique(degree)
     degrees = {}
@@ -381,64 +296,36 @@ def construct_weighted_kcore_networkx_salinas(message_matrix):
     return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list
 
 
-def trader_in_kcore(message_matrix,idx_to_buddy_dict,buddy_to_idx_dict):
-
-    address_file_name = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/Address_linkfile.txt"
-    f = open(address_file_name, "r")
-    user_address_list = []
-    for line in f.readlines():
-        line_split = line.split()
-        address = line_split[-1]
-        user_address_list.append(address)
-
-    traders_idx_list = []
-    for buddy in buddy_to_idx_dict.keys():
-        if buddy in user_address_list:
-            traders_idx_list.append(buddy_to_idx_dict[buddy])
-
-    print(traders_idx_list)
-
+def trader_in_kcore_networkx_salinas(message_matrix,idx_to_buddy_dict,buddy_to_idx_dict):
     message_matrix1 = np.zeros((len(message_matrix), len(message_matrix)))
     for i in range(len(message_matrix)):
         for j in range(i + 1, len(message_matrix)):
             message_matrix1[i][j] = message_matrix[i][j] + message_matrix[j][i]
             message_matrix1[j][i] = message_matrix1[i][j]
 
+    # for time, message_adj_list in message_adj_list_dict.items():
     G = nx.Graph()
     for src in range(len(message_matrix1)):
         for dest in range(len(message_matrix1[0])):
             if src != dest and message_matrix1[src][dest] != 0:
                 G.add_edge(src, dest, weight=message_matrix1[src][dest])
 
-    degree = np.sum(message_matrix1, axis=1)
+    G.remove_edges_from(nx.selfloop_edges(G))
 
-    uniqueDegree = np.unique(degree)
-    degrees = {}
-    for i in range(len(degree)):
-        degrees[i] = int(degree[i])
-
-
-    ## Gives the max number of cores that graph can have
-    # for max_core in range(len(uniqueDegree)):
-
-    for max_core in range(2,25):
-        # print(uniqueDegree[max_core])
-        # kcore_G = core.k_core(G, degrees, uniqueDegree[max_core])
-        # kcore_G = nx.k_core(G, uniqueDegree[max_core])
+    for max_core in range(25):
         kcore_G = nx.k_core(G, max_core)
-
+        # print(kcore_G.nodes)
         kcore_num_of_nodes = len(kcore_G.nodes)
-        subgraphs = nx.connected_component_subgraphs(kcore_G)
-        kcore_largest_cc = max(nx.connected_component_subgraphs(kcore_G), key=len)
 
-        count = 0
-        for kcore_node in kcore_G.nodes:
-            if kcore_node in traders_idx_list:
-                # print("Trader present in {0}-core".format(max_core))
-                count = count + 1
-        print("{0} traders in {1}- Core".format(count,max_core))
+        ## Get the buddies from indexes
+        buddies_in_kcore = [idx_to_buddy_dict[node] for node in kcore_G.nodes]
+        print(len(buddies_in_kcore))
+        traders_in_kcore = list(set(buddies_in_kcore).intersection(traders_list))
+        print(len(traders_in_kcore))
+        ## check if buddies are traders
         if (kcore_num_of_nodes == 0):
             break
+
 
 
 
@@ -537,11 +424,11 @@ def multiprocess_salinas(dir_path,filenames,output_path):
             df = pd.read_csv(file_path)
             message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
             ## Unweighted
-            # kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(
-            #     message_matrix)
-
-            kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_weighted_kcore_networkx_salinas(
+            kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(
                 message_matrix)
+
+            # kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_weighted_kcore_networkx_salinas(
+            #     message_matrix)
 
             with open(output_path + "/kcore_number_week{0}.csv".format(weeknum), "w") as myfile:
                 for ele in kcore_number_list:
@@ -572,31 +459,36 @@ def multiprocess_salinas(dir_path,filenames,output_path):
             myfile.close()
 
 
+
+
 if __name__ == "__main__":
     pd.set_option('display.max_colwidth', -1)
     ## message matrix contains edge weight about number of messages exchanged. It gives information of a directed graph.
-    # df = create_df(cfg.PROCESSED_DIR_PATH)
+
+
     # df = pd.read_csv(cfg.PROCESSED_DIR_PATH + "im_df_Export_0x00000152_20070222130307_20070223175543_17075.csv")
-    df = pd.read_csv(
-        "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week78.csv")
+    # df = pd.read_csv(
+    #     "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week78.csv")
     # message_matrix_dict,message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict = create_matrix_dict(df)
-    message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
-    # create_graph(message_adj_list_dict)
-    construct_kcore_networkx(message_adj_list,1)
+    # message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
+
+
+    # plot_kcore_networkx(message_adj_list,1)
     # construct_k_core_degrees(message_adj_list_dict,3)
     # color_kcore_networkx(message_adj_list)
+
     # kcore_nodes_dict = return_kcore_nodes(message_adj_list_dict,buddy_to_idx_dict,idx_to_buddy_dict,2)
     # unique_users(cfg.PROCESSED_DIR_PATH)
     # common_users(cfg.PROCESSED_DIR_PATH,1)
 
-    # df = pd.read_csv("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week76.csv")
-    # message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
-    # trader_in_kcore(message_matrix,idx_to_buddy,buddy_to_idx)
+    df = pd.read_csv("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week76.csv")
+    message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
+    trader_in_kcore_networkx_salinas(message_matrix,idx_to_buddy,buddy_to_idx)
 
     # dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/processed_files/"
 
     # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
-    # output_path = "./kcore_weighted/threshold_4/"
+    # output_path = "./kcore/"
     #
     # file_names_list = []
     # for (dirpath, dirnames, filenames) in walk(dir_path):
@@ -614,7 +506,7 @@ if __name__ == "__main__":
     #
     #
     # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_business/"
-    # output_path = "./kcore_business_weighted/threshold_4/"
+    # output_path = "./kcore_business/"
     #
     # file_names_list = []
     # for (dirpath, dirnames, filenames) in walk(dir_path):
@@ -632,7 +524,7 @@ if __name__ == "__main__":
     #
     #
     # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_personal/"
-    # output_path = "./kcore_personal_weighted/threshold_4/"
+    # output_path = "./kcore_personal/"
     #
     # file_names_list = []
     # for (dirpath, dirnames, filenames) in walk(dir_path):

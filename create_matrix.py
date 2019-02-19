@@ -14,10 +14,10 @@ import pickle
 import misc
 
 address_to_user_dict = {}
-with open(
-        "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/address_to_user_mapping.pkl",
-        "rb") as handle:
-# with open("./address_to_user_mapping.pkl","rb") as handle:
+# with open(
+#         "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/performance_data/address_to_user_mapping.pkl",
+#         "rb") as handle:
+with open("./address_to_user_mapping.pkl","rb") as handle:
     address_to_user_dict = pickle.load(handle)
 
 account_to_trader_dict,trader_to_account_dict = misc.parse_trader_book()
@@ -40,8 +40,8 @@ def create_matrix(im_df):
     im_df["receiver_user"] = im_df["receiver_buddy"].apply(lambda x : map_address_user(x))
 
     ## Map
-    unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
-    print("the number of unique buddues: %d" % len(unique_im_buddies))
+    # unique_im_buddies = im_df['sender_buddy'].append(im_df['receiver_buddy']).unique().tolist()
+    # print("the number of unique buddues: %d" % len(unique_im_buddies))
 
     unique_im_buddies = im_df['sender_user'].append(im_df['receiver_user']).unique().tolist()
     print("the number of unique buddies: %d" % len(unique_im_buddies))
@@ -175,7 +175,7 @@ def color_kcore_networkx(message_adj_list):
         # break
 
 
-def construct_kcore_networkx_salinas(message_matrix):
+def construct_kcore_networkx_salinas(message_matrix,idx_to_buddy_dict):
 
     message_matrix1 = np.zeros((len(message_matrix), len(message_matrix)))
     for i in range(len(message_matrix)):
@@ -203,6 +203,7 @@ def construct_kcore_networkx_salinas(message_matrix):
     kcore_number_list = []
     kcore_num_components_list = []
     kcore_largest_cc_num_nodes_list = []
+    kcore_account_list = []
 
     ## Gives the max number of cores that graph can have
     # for max_core in range(len(uniqueDegree)):
@@ -211,6 +212,7 @@ def construct_kcore_networkx_salinas(message_matrix):
         # print(uniqueDegree[max_core])
         # kcore_G = core.k_core(G, degrees, uniqueDegree[max_core])
         # kcore_G = nx.k_core(G, uniqueDegree[max_core])
+        account_string = ""
         kcore_G = nx.k_core(G, max_core)
 
         kcore_num_of_nodes = len(kcore_G.nodes)
@@ -218,9 +220,19 @@ def construct_kcore_networkx_salinas(message_matrix):
         kcore_num_components = len(list(subgraphs))
         kcore_num_components_list.append(kcore_num_components)
 
+        ## To get the accounts in those days
+        buddies_in_kcore = [idx_to_buddy_dict[node] for node in kcore_G.nodes]
+        # print(len(buddies_in_kcore))
+        traders_in_kcore = list(set(buddies_in_kcore).intersection(traders_list))
+        # print(len(traders_in_kcore))
+        for traders in traders_in_kcore:
+            account_string = account_string + ",".join(trader_to_account_dict[traders]) + ","
+
+        # print(account_string)
+
         if (kcore_num_of_nodes == 0):
             break
-
+        kcore_account_list.append(account_string)
         kcore_num_of_nodes_list.append(kcore_num_of_nodes)
         # kcore_number_list.append(uniqueDegree[max_core])
         kcore_number_list.append(max_core)
@@ -232,7 +244,7 @@ def construct_kcore_networkx_salinas(message_matrix):
               .format(max_core,kcore_num_of_nodes,kcore_num_components,kcore_largest_cc_num_nodes))
     # print(kcore_num_of_nodes_list)
 
-    return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list
+    return kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list,kcore_account_list
 
 
 def construct_weighted_kcore_networkx_salinas(message_matrix):
@@ -311,8 +323,10 @@ def trader_in_kcore_networkx_salinas(message_matrix,idx_to_buddy_dict,buddy_to_i
                 G.add_edge(src, dest, weight=message_matrix1[src][dest])
 
     G.remove_edges_from(nx.selfloop_edges(G))
+    kcore_account_list = []
 
     for max_core in range(25):
+        account_string = ""
         kcore_G = nx.k_core(G, max_core)
         # print(kcore_G.nodes)
         kcore_num_of_nodes = len(kcore_G.nodes)
@@ -322,9 +336,20 @@ def trader_in_kcore_networkx_salinas(message_matrix,idx_to_buddy_dict,buddy_to_i
         print(len(buddies_in_kcore))
         traders_in_kcore = list(set(buddies_in_kcore).intersection(traders_list))
         print(len(traders_in_kcore))
+        for traders in traders_in_kcore:
+            account_string = account_string + ",".join(trader_to_account_dict[traders]) + ","
+        kcore_account_list.append(account_string)
+        print(account_string)
         ## check if buddies are traders
         if (kcore_num_of_nodes == 0):
             break
+
+    with open("temp.txt", "w") as myfile:
+        for ele in kcore_account_list :
+            myfile.write("%s" % ele)
+            myfile.write("\n")
+    myfile.close()
+
 
 
 
@@ -424,8 +449,8 @@ def multiprocess_salinas(dir_path,filenames,output_path):
             df = pd.read_csv(file_path)
             message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
             ## Unweighted
-            kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_kcore_networkx_salinas(
-                message_matrix)
+            kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list,kcore_account_list = construct_kcore_networkx_salinas(
+                message_matrix,idx_to_buddy)
 
             # kcore_number_list, kcore_num_of_nodes_list, kcore_num_components_list, kcore_largest_cc_num_nodes_list = construct_weighted_kcore_networkx_salinas(
             #     message_matrix)
@@ -458,6 +483,12 @@ def multiprocess_salinas(dir_path,filenames,output_path):
                 myfile.write("\n")
             myfile.close()
 
+            with open(output_path + "/kcore_account_week{0}.csv".format(weeknum), "w") as myfile:
+                for ele in kcore_account_list:
+                    myfile.write("%s" % ele)
+                    myfile.write("\n")
+            myfile.close()
+
 
 
 
@@ -481,61 +512,61 @@ if __name__ == "__main__":
     # unique_users(cfg.PROCESSED_DIR_PATH)
     # common_users(cfg.PROCESSED_DIR_PATH,1)
 
-    df = pd.read_csv("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week76.csv")
-    message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
-    trader_in_kcore_networkx_salinas(message_matrix,idx_to_buddy,buddy_to_idx)
+    # df = pd.read_csv("/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/data/processed_files/im_df_week86.csv")
+    # message_matrix, message_adj_list, buddy_to_idx, idx_to_buddy = create_matrix(df)
+    # trader_in_kcore_networkx_salinas(message_matrix,idx_to_buddy,buddy_to_idx)
 
     # dir_path = "/Users/sainikhilmaram/Desktop/OneDrive/UCSB_courses/project/hedgefund_analysis/processed_files/"
 
-    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
-    # output_path = "./kcore/"
-    #
-    # file_names_list = []
-    # for (dirpath, dirnames, filenames) in walk(dir_path):
-    #     for filename in filenames:
-    #         file_names_list.append(filename)
-    #
-    # num_process = 16
-    # print(file_names_list)
-    # chunked_file_names_list = list(chunker_list(file_names_list,num_process))
-    # print(chunked_file_names_list)
-    #
-    # for file_names in chunked_file_names_list:
-    #     p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path,file_names,output_path,))
-    #     p.start()
-    #
-    #
-    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_business/"
-    # output_path = "./kcore_business/"
-    #
-    # file_names_list = []
-    # for (dirpath, dirnames, filenames) in walk(dir_path):
-    #     for filename in filenames:
-    #         file_names_list.append(filename)
-    #
-    # num_process = 16
-    # print(file_names_list)
-    # chunked_file_names_list = list(chunker_list(file_names_list, num_process))
-    # print(chunked_file_names_list)
-    #
-    # for file_names in chunked_file_names_list:
-    #     p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
-    #     p.start()
-    #
-    #
-    # dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_personal/"
-    # output_path = "./kcore_personal/"
-    #
-    # file_names_list = []
-    # for (dirpath, dirnames, filenames) in walk(dir_path):
-    #     for filename in filenames:
-    #         file_names_list.append(filename)
-    #
-    # num_process = 16
-    # print(file_names_list)
-    # chunked_file_names_list = list(chunker_list(file_names_list, num_process))
-    # print(chunked_file_names_list)
-    #
-    # for file_names in chunked_file_names_list:
-    #     p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
-    #     p.start()
+    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_files/"
+    output_path = "./kcore/"
+
+    file_names_list = []
+    for (dirpath, dirnames, filenames) in walk(dir_path):
+        for filename in filenames:
+            file_names_list.append(filename)
+
+    num_process = 16
+    print(file_names_list)
+    chunked_file_names_list = list(chunker_list(file_names_list,num_process))
+    print(chunked_file_names_list)
+
+    for file_names in chunked_file_names_list:
+        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path,file_names,output_path,))
+        p.start()
+
+
+    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_business/"
+    output_path = "./kcore_business/"
+
+    file_names_list = []
+    for (dirpath, dirnames, filenames) in walk(dir_path):
+        for filename in filenames:
+            file_names_list.append(filename)
+
+    num_process = 16
+    print(file_names_list)
+    chunked_file_names_list = list(chunker_list(file_names_list, num_process))
+    print(chunked_file_names_list)
+
+    for file_names in chunked_file_names_list:
+        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
+        p.start()
+
+
+    dir_path = "/local/home/student/sainikhilmaram/hedgefund_data/curr_processing_dir/processed_personal/"
+    output_path = "./kcore_personal/"
+
+    file_names_list = []
+    for (dirpath, dirnames, filenames) in walk(dir_path):
+        for filename in filenames:
+            file_names_list.append(filename)
+
+    num_process = 16
+    print(file_names_list)
+    chunked_file_names_list = list(chunker_list(file_names_list, num_process))
+    print(chunked_file_names_list)
+
+    for file_names in chunked_file_names_list:
+        p = multiprocessing.Process(target=multiprocess_salinas, args=(dir_path, file_names, output_path,))
+        p.start()
